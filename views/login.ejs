@@ -35,7 +35,7 @@
         <optgroup label="Líneas de WhatsApp">
           <% lineas.forEach(l => { %><option value="<%= l.numero %>">Línea <%= l.numero %></option><% }) %>
         </optgroup>
-        <% if (adminUser) { %><optgroup label="Administración"><option value="<%= adminUser %>">Administrador</option></optgroup><% } %>
+        <% if (adminUser) { %><optgroup label="Administración"><option value="__admin__">Administrador</option></optgroup><% } %>
       </select>
     </label>
     <label>Clave <input type="password" name="clave" required autofocus autocomplete="current-password"></label>

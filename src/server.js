@@ -15,8 +15,20 @@ app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
 app.use(cookieSession({ name: 'ferreobras', secret: process.env.SESSION_SECRET || 'cambiar', maxAge: 12 * 60 * 60 * 1000, sameSite: 'lax' }));
 
-const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const adminHabilitado = () => !!process.env.ADMIN_PASS;
+// Lee una variable de entorno tolerando comillas, espacios y retornos de carro que suelen colarse
+// al pegar valores en Dokploy o en un .env editado en Windows.
+const leerEnv = (nombre) => {
+  let v = process.env[nombre];
+  if (v == null) return '';
+  v = String(v).replace(/\r|\n/g, '').trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+  return v;
+};
+const ADMIN_USER = leerEnv('ADMIN_USER') || 'admin';
+const ADMIN_PASS = leerEnv('ADMIN_PASS');
+const ADMIN_TOKEN = '__admin__'; // valor fijo que envía el <select> del login para el administrador
+const adminHabilitado = () => !!ADMIN_PASS;
+console.log(adminHabilitado() ? `[auth] administrador habilitado (usuario "${ADMIN_USER}")` : '[auth] ADMIN_PASS no definida: acceso de administrador deshabilitado');
 
 // ---------- helpers ----------
 const fmt = (iso) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
@@ -72,15 +84,21 @@ app.get('/login', ruta(async (req, res) => {
   res.render('login', { lineas: await lineasWhatsapp(), adminUser: adminHabilitado() ? ADMIN_USER : null, error: null });
 }));
 app.post('/login', ruta(async (req, res) => {
-  const usuario = String(req.body.usuario || '').trim(), clave = String(req.body.clave || '');
-  if (adminHabilitado() && usuario === ADMIN_USER && clave === process.env.ADMIN_PASS) {
-    req.session.usuario = ADMIN_USER; req.session.rol = 'admin'; req.session.linea = null;
-    return res.redirect('/admin');
-  }
-  const esperada = /^\d{3,6}$/.test(usuario) ? process.env[`PASS_${usuario}`] : null;
-  if (esperada && clave === esperada) {
-    req.session.usuario = usuario; req.session.rol = 'linea'; req.session.linea = usuario;
-    return res.redirect('/');
+  const usuario = String(req.body.usuario || '').trim(), clave = String(req.body.clave || '').replace(/\r|\n/g, '').trim();
+  const esAdmin = usuario === ADMIN_TOKEN || usuario === ADMIN_USER;
+  if (esAdmin) {
+    if (adminHabilitado() && clave === ADMIN_PASS) {
+      req.session.usuario = ADMIN_USER; req.session.rol = 'admin'; req.session.linea = null;
+      return res.redirect('/admin');
+    }
+    console.warn(`[auth] intento de administrador rechazado: ${adminHabilitado() ? 'la clave no coincide con ADMIN_PASS' : 'ADMIN_PASS no está definida'} (clave recibida de ${clave.length} caracteres, esperada de ${ADMIN_PASS.length})`);
+  } else {
+    const esperada = /^\d{3,6}$/.test(usuario) ? leerEnv(`PASS_${usuario}`) : '';
+    if (esperada && clave === esperada) {
+      req.session.usuario = usuario; req.session.rol = 'linea'; req.session.linea = usuario;
+      return res.redirect('/');
+    }
+    console.warn(`[auth] intento rechazado para "${usuario}": ${esperada ? 'clave incorrecta' : `no existe la variable PASS_${usuario}`}`);
   }
   res.status(401).render('login', { lineas: await lineasWhatsapp(), adminUser: adminHabilitado() ? ADMIN_USER : null, error: 'Usuario o clave incorrecta.' });
 }));
