@@ -1,0 +1,36 @@
+<%- include('layout_head', { titulo: 'Obras' }) %>
+<div class="encabezado">
+  <h1><%= ver === 'cerradas' ? 'Obras cerradas' : 'Obras en curso' %></h1>
+  <div class="acciones">
+    <a class="btn" href="/?ver=<%= ver === 'cerradas' ? 'activas' : 'cerradas' %>"><%= ver === 'cerradas' ? 'Ver en curso' : 'Ver cerradas' %></a>
+    <a class="btn primario" href="/obras/nueva">Nueva obra</a>
+  </div>
+</div>
+
+<% if (!obras.length) { %>
+  <p class="vacio">Todavía no hay obras <%= ver === 'cerradas' ? 'cerradas' : 'registradas' %>. <a href="/obras/nueva">Registra la primera</a>.</p>
+<% } else { %>
+<table class="tabla obras">
+  <thead><tr><th>Cliente</th><th>Obra</th><th>Línea</th><th>Avance</th><th>Próxima etapa</th><th>Aviso</th></tr></thead>
+  <tbody>
+  <% obras.forEach(o => {
+       let clase = '', texto = '—';
+       if (o.dias_para_aviso !== null && o.dias_para_aviso !== undefined) {
+         if (o.dias_para_aviso < 0) { clase = 'vencido'; texto = `hace ${-o.dias_para_aviso} d`; }
+         else if (o.dias_para_aviso === 0) { clase = 'hoy'; texto = 'hoy'; }
+         else if (o.dias_para_aviso <= 3) { clase = 'pronto'; texto = `en ${o.dias_para_aviso} d`; }
+         else { texto = `en ${o.dias_para_aviso} d`; }
+       } %>
+    <tr class="fila <%= clase %>" data-href="/obras/<%= o.id %>">
+      <td><a href="/obras/<%= o.id %>"><%= o.cliente %></a><small><%= o.celular %></small></td>
+      <td><%= o.obra %><small><%= o.direccion_obra || '' %></small></td>
+      <td><%= o.linea %></td>
+      <td><%= o.etapas_hechas %> de <%= o.total_etapas %> etapas</td>
+      <td><% if (o.proxima) { %><%= o.proxima.nombre %><small><%= fmt(o.proxima.fecha_programada) %></small><% } else { %><span class="muted">Sin etapas pendientes</span><% } %></td>
+      <td><span class="chip <%= clase %>"><%= texto %></span><% if (o.proxima && o.proxima.fecha_aviso) { %><small><%= fmt(o.proxima.fecha_aviso) %></small><% } %></td>
+    </tr>
+  <% }) %>
+  </tbody>
+</table>
+<% } %>
+<%- include('layout_foot') %>

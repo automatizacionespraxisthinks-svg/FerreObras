@@ -1,0 +1,14 @@
+{
+  "name": "ferreobras",
+  "version": "1.0.0",
+  "description": "Seguimiento de obras de clientes importantes - FerreAceros",
+  "main": "src/server.js",
+  "scripts": { "start": "node src/server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "cookie-session": "^2.1.0",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

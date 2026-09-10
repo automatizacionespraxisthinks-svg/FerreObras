@@ -1,0 +1,18 @@
+<%- include('layout_head', { titulo: 'Líneas de producto' }) %>
+<div class="encabezado"><h1>Líneas de producto</h1></div>
+<% if (msg) { %><p class="aviso-ok"><%= msg %></p><% } %>
+<p class="ayuda">Estas son las columnas del historial de ventas. Desactivar una línea la oculta en las obras nuevas sin borrar lo ya registrado.</p>
+<table class="tabla">
+  <thead><tr><th>Línea</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  <% productos.forEach(p => { %>
+    <tr><td><%= p.nombre %></td><td><%= p.activa ? 'Activa' : 'Inactiva' %></td>
+      <td><form method="post" action="/lineas/<%= p.id %>/estado"><button class="btn chico link"><%= p.activa ? 'Desactivar' : 'Activar' %></button></form></td></tr>
+  <% }) %>
+  </tbody>
+</table>
+<form method="post" action="/lineas" class="agregar-etapa">
+  <label>Nueva línea <input name="nombre" required placeholder="Ej. Tejas"></label>
+  <button class="btn chico primario">Agregar</button>
+</form>
+<%- include('layout_foot') %>
