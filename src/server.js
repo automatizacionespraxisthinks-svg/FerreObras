@@ -4,26 +4,37 @@ const cookieSession = require('cookie-session');
 const db = require('./db');
 const calc = require('./calc');
 const notify = require('./notify');
+const reportes = require('./reportes');
+const excel = require('./excel');
 
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use('/static', express.static(path.join(__dirname, '..', 'public')));
+app.use('/static', express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
 app.use(cookieSession({ name: 'ferreobras', secret: process.env.SESSION_SECRET || 'cambiar', maxAge: 12 * 60 * 60 * 1000, sameSite: 'lax' }));
+
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const adminHabilitado = () => !!process.env.ADMIN_PASS;
 
 // ---------- helpers ----------
 const fmt = (iso) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
 app.locals.fmt = fmt;
 app.locals.hoy = calc.hoyBogota;
+app.locals.toISO = calc.toISO;
+app.locals.toISOBogota = calc.toISOBogota;
 app.locals.diffDays = calc.diffDays;
+// Envuelve rutas async para que los errores lleguen al manejador de Express
+const ruta = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const noEncontrado = (res, que = 'Obra') => res.status(404).render('mensaje', { titulo: `${que} no encontrada`, mensaje: `La ${que.toLowerCase()} que buscas no existe o fue eliminada.` });
 
 async function lineasWhatsapp() { return (await db.query('SELECT numero, correo FROM lineas_whatsapp WHERE activa ORDER BY numero')).rows; }
 async function lineasProducto(todas = false) {
   return (await db.query(`SELECT id, nombre, orden, activa FROM lineas_producto ${todas ? '' : 'WHERE activa'} ORDER BY orden, id`)).rows;
 }
 async function cargarObra(id) {
+  if (!/^\d+$/.test(String(id))) return null;
   const obra = (await db.query('SELECT * FROM obras WHERE id = $1', [id])).rows[0];
   if (!obra) return null;
   const etapas = (await db.query('SELECT * FROM etapas WHERE obra_id = $1 ORDER BY orden', [id])).rows
@@ -43,48 +54,82 @@ async function guardarEtapas(client, obraId, etapas) {
   }
   await client.query('UPDATE obras SET updated_at = NOW() WHERE id = $1', [obraId]);
 }
+function enviarExcel(res, nombre, buffer) {
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+  res.send(Buffer.from(buffer));
+}
 
 // ---------- auth ----------
-function requireLogin(req, res, next) { if (req.session && req.session.linea) return next(); res.redirect('/login'); }
-app.get('/login', async (req, res) => res.render('login', { lineas: await lineasWhatsapp(), error: null }));
-app.post('/login', async (req, res) => {
-  const { linea, clave } = req.body;
-  const esperada = process.env[`PASS_${linea}`];
-  if (esperada && clave === esperada) { req.session.linea = linea; return res.redirect('/'); }
-  res.render('login', { lineas: await lineasWhatsapp(), error: 'Línea o clave incorrecta.' });
-});
+// Dos tipos de usuario: las líneas de WhatsApp (PASS_<línea>) y el administrador (ADMIN_USER / ADMIN_PASS).
+function requireLogin(req, res, next) { if (req.session && req.session.usuario) return next(); res.redirect('/login'); }
+function requireAdmin(req, res, next) {
+  if (req.session.rol === 'admin') return next();
+  res.status(403).render('mensaje', { titulo: 'Acceso restringido', mensaje: 'El panel de administración solo está disponible para la cuenta de administrador.' });
+}
+app.get('/login', ruta(async (req, res) => {
+  if (req.session && req.session.usuario) return res.redirect(req.session.rol === 'admin' ? '/admin' : '/');
+  res.render('login', { lineas: await lineasWhatsapp(), adminUser: adminHabilitado() ? ADMIN_USER : null, error: null });
+}));
+app.post('/login', ruta(async (req, res) => {
+  const usuario = String(req.body.usuario || '').trim(), clave = String(req.body.clave || '');
+  if (adminHabilitado() && usuario === ADMIN_USER && clave === process.env.ADMIN_PASS) {
+    req.session.usuario = ADMIN_USER; req.session.rol = 'admin'; req.session.linea = null;
+    return res.redirect('/admin');
+  }
+  const esperada = /^\d{3,6}$/.test(usuario) ? process.env[`PASS_${usuario}`] : null;
+  if (esperada && clave === esperada) {
+    req.session.usuario = usuario; req.session.rol = 'linea'; req.session.linea = usuario;
+    return res.redirect('/');
+  }
+  res.status(401).render('login', { lineas: await lineasWhatsapp(), adminUser: adminHabilitado() ? ADMIN_USER : null, error: 'Usuario o clave incorrecta.' });
+}));
 app.post('/logout', (req, res) => { req.session = null; res.redirect('/login'); });
 app.use(requireLogin);
-app.use((req, res, next) => { res.locals.linea = req.session.linea; next(); });
+app.use((req, res, next) => {
+  res.locals.usuario = req.session.usuario;
+  res.locals.rol = req.session.rol;
+  res.locals.linea = req.session.linea;
+  res.locals.esAdmin = req.session.rol === 'admin';
+  res.locals.ruta = req.path;
+  res.locals.msg = req.query.msg || null;
+  next();
+});
 
 // ---------- lista de obras ----------
-app.get('/', async (req, res) => {
+app.get('/', ruta(async (req, res) => {
   const ver = req.query.ver === 'cerradas' ? 'cerradas' : 'activas';
   const rows = (await db.query(`
     SELECT o.*,
       (SELECT json_build_object('nombre', e.nombre, 'fecha_programada', e.fecha_programada, 'fecha_aviso', e.fecha_aviso)
          FROM etapas e WHERE e.obra_id = o.id AND e.estado = 'pendiente' AND e.orden > 0 ORDER BY e.orden LIMIT 1) AS proxima,
       (SELECT COUNT(*) FROM etapas e WHERE e.obra_id = o.id AND e.orden > 0) AS total_etapas,
-      (SELECT COUNT(*) FROM etapas e WHERE e.obra_id = o.id AND e.orden > 0 AND e.estado <> 'pendiente') AS etapas_hechas
+      (SELECT COUNT(*) FROM etapas e WHERE e.obra_id = o.id AND e.orden > 0 AND e.estado <> 'pendiente') AS etapas_hechas,
+      (SELECT COUNT(*) FROM etapas e WHERE e.obra_id = o.id AND e.estado = 'vendida') AS etapas_vendidas
     FROM obras o WHERE o.estado = $1 ORDER BY o.updated_at DESC`, [ver === 'cerradas' ? 'cerrada' : 'activa'])).rows;
+  const conteos = { activas: 0, cerradas: 0 };
+  for (const r of (await db.query('SELECT estado, COUNT(*)::int AS n FROM obras GROUP BY estado')).rows) conteos[r.estado === 'cerrada' ? 'cerradas' : 'activas'] = r.n;
   const hoy = calc.hoyBogota();
+  const resumen = { vencidos: 0, hoy: 0, semana: 0 };
   for (const o of rows) {
+    o.total_etapas = Number(o.total_etapas); o.etapas_hechas = Number(o.etapas_hechas); o.etapas_vendidas = Number(o.etapas_vendidas);
     if (o.proxima) {
       o.proxima.fecha_programada = calc.toISO(o.proxima.fecha_programada);
       o.proxima.fecha_aviso = calc.toISO(o.proxima.fecha_aviso);
       o.dias_para_aviso = o.proxima.fecha_aviso ? calc.diffDays(hoy, o.proxima.fecha_aviso) : null;
+      if (o.dias_para_aviso !== null) { if (o.dias_para_aviso < 0) resumen.vencidos++; else if (o.dias_para_aviso === 0) resumen.hoy++; else if (o.dias_para_aviso <= 7) resumen.semana++; }
     }
   }
   // más urgentes primero
   rows.sort((a, b) => (a.dias_para_aviso ?? 9999) - (b.dias_para_aviso ?? 9999));
-  res.render('index', { obras: rows, ver });
-});
+  res.render('index', { obras: rows, ver, conteos, resumen });
+}));
 
 // ---------- nueva obra ----------
-app.get('/obras/nueva', async (req, res) => {
+app.get('/obras/nueva', ruta(async (req, res) => {
   res.render('obra_form', { obra: null, lineas: await lineasWhatsapp(), productos: await lineasProducto(), error: null });
-});
-app.post('/obras', async (req, res) => {
+}));
+app.post('/obras', ruta(async (req, res) => {
   const b = req.body;
   const productos = await lineasProducto();
   const precios = {};
@@ -103,7 +148,7 @@ app.post('/obras', async (req, res) => {
       `INSERT INTO obras (cliente, celular, direccion_cliente, obra, direccion_obra, maestro, celular_maestro, linea, fecha_cimentacion, num_placas, intervalo_dias, dias_aviso, precios, notas, creada_por)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
       [datos.cliente, datos.celular, datos.direccion_cliente, datos.obra, datos.direccion_obra, datos.maestro, datos.celular_maestro, datos.linea,
-       datos.fecha_cimentacion, datos.num_placas, datos.intervalo_dias, datos.dias_aviso, JSON.stringify(precios), datos.notas, req.session.linea]);
+       datos.fecha_cimentacion, datos.num_placas, datos.intervalo_dias, datos.dias_aviso, JSON.stringify(precios), datos.notas, req.session.usuario]);
     const id = r.rows[0].id;
     for (const e of calc.etapasIniciales(datos)) {
       await client.query(
@@ -113,23 +158,23 @@ app.post('/obras', async (req, res) => {
     return id;
   });
   notify.calendar('obra_creada', obraId);
-  res.redirect(`/obras/${obraId}`);
-});
+  res.redirect(`/obras/${obraId}?msg=${encodeURIComponent('Obra creada y seguimientos programados')}`);
+}));
 
 // ---------- detalle ----------
-app.get('/obras/:id', async (req, res) => {
+app.get('/obras/:id', ruta(async (req, res) => {
   const data = await cargarObra(req.params.id);
-  if (!data) return res.status(404).send('Obra no encontrada');
-  res.render('obra', { ...data, productos: await lineasProducto(), lineas: await lineasWhatsapp(), msg: req.query.msg || null });
-});
+  if (!data) return noEncontrado(res);
+  res.render('obra', { ...data, productos: await lineasProducto(), lineas: await lineasWhatsapp() });
+}));
 
 // editar cabecera
-app.get('/obras/:id/editar', async (req, res) => {
+app.get('/obras/:id/editar', ruta(async (req, res) => {
   const data = await cargarObra(req.params.id);
-  if (!data) return res.status(404).send('Obra no encontrada');
+  if (!data) return noEncontrado(res);
   res.render('obra_form', { obra: { ...data.obra, fecha_cimentacion: calc.toISO(data.obra.fecha_cimentacion) }, lineas: await lineasWhatsapp(), productos: await lineasProducto(), error: null });
-});
-app.post('/obras/:id/editar', async (req, res) => {
+}));
+app.post('/obras/:id/editar', ruta(async (req, res) => {
   const b = req.body, id = req.params.id;
   const productos = await lineasProducto();
   const precios = {};
@@ -140,16 +185,16 @@ app.post('/obras/:id/editar', async (req, res) => {
      b.linea, JSON.stringify(precios), b.notas?.trim() || null, Number(b.dias_aviso), Number(b.intervalo_dias)]);
   notify.calendar('fechas_actualizadas', Number(id)); // el invitado o la descripción pudieron cambiar
   res.redirect(`/obras/${id}?msg=Datos guardados`);
-});
+}));
 
 // guardar una etapa (fecha, nombre, estado, ventas) y recalcular las siguientes
-app.post('/obras/:id/etapas/:eid', async (req, res) => {
+app.post('/obras/:id/etapas/:eid', ruta(async (req, res) => {
   const { id, eid } = req.params; const b = req.body;
   const data = await cargarObra(id);
-  if (!data) return res.status(404).send('Obra no encontrada');
+  if (!data) return noEncontrado(res);
   const productos = await lineasProducto();
   const etapa = data.etapas.find(e => String(e.id) === String(eid));
-  if (!etapa) return res.status(404).send('Etapa no encontrada');
+  if (!etapa) return noEncontrado(res, 'Etapa');
 
   const antes = data.etapas.map(e => e.fecha_aviso);
   etapa.nombre = b.nombre?.trim() || etapa.nombre;
@@ -180,14 +225,14 @@ app.post('/obras/:id/etapas/:eid', async (req, res) => {
   });
   notify.calendar('fechas_actualizadas', Number(id));
   const msg = movidas ? `Etapa guardada. Se recalcularon ${movidas} etapa(s) posteriores.` : 'Etapa guardada.';
-  res.redirect(`/obras/${id}?msg=${encodeURIComponent(msg)}`);
-});
+  res.redirect(`/obras/${id}?msg=${encodeURIComponent(msg)}#etapa-${etapa.id}`);
+}));
 
 // agregar etapa al final (cubierta, acabados, otra placa...)
-app.post('/obras/:id/etapas', async (req, res) => {
+app.post('/obras/:id/etapas', ruta(async (req, res) => {
   const { id } = req.params; const b = req.body;
   const data = await cargarObra(id);
-  if (!data) return res.status(404).send('Obra no encontrada');
+  if (!data) return noEncontrado(res);
   const orden = Math.max(...data.etapas.map(e => e.orden)) + 1;
   const nueva = { orden, nombre: b.nombre?.trim() || `Etapa ${orden}`, intervalo_dias: Number(b.intervalo_dias) || data.obra.intervalo_dias,
     dias_aviso: Number(b.dias_aviso) || data.obra.dias_aviso, fecha_programada: null, fecha_fija: false, fecha_real: null, estado: 'pendiente' };
@@ -200,10 +245,10 @@ app.post('/obras/:id/etapas', async (req, res) => {
   });
   notify.calendar('fechas_actualizadas', Number(id));
   res.redirect(`/obras/${id}?msg=${encodeURIComponent('Etapa agregada')}`);
-});
+}));
 
 // eliminar etapa (solo pendientes y no la cimentación)
-app.post('/obras/:id/etapas/:eid/eliminar', async (req, res) => {
+app.post('/obras/:id/etapas/:eid/eliminar', ruta(async (req, res) => {
   const { id, eid } = req.params;
   const e = (await db.query('SELECT * FROM etapas WHERE id=$1 AND obra_id=$2', [eid, id])).rows[0];
   if (!e || e.orden === 0 || e.estado !== 'pendiente') return res.redirect(`/obras/${id}?msg=${encodeURIComponent('Solo se pueden eliminar etapas pendientes.')}`);
@@ -217,55 +262,68 @@ app.post('/obras/:id/etapas/:eid/eliminar', async (req, res) => {
   });
   notify.calendar('fechas_actualizadas', Number(id), { evento_eliminado: eventId });
   res.redirect(`/obras/${id}?msg=${encodeURIComponent('Etapa eliminada')}`);
-});
+}));
 
 // cerrar / reabrir obra
-app.post('/obras/:id/cerrar', async (req, res) => {
+app.post('/obras/:id/cerrar', ruta(async (req, res) => {
   const { id } = req.params;
   await db.query(`UPDATE obras SET estado='cerrada', cerrada_at=NOW(), updated_at=NOW() WHERE id=$1`, [id]);
   notify.calendar('obra_cerrada', Number(id));
   notify.cierre(Number(id));
   res.redirect(`/obras/${id}?msg=${encodeURIComponent('Obra cerrada')}`);
-});
-app.post('/obras/:id/reabrir', async (req, res) => {
+}));
+app.post('/obras/:id/reabrir', ruta(async (req, res) => {
   const { id } = req.params;
   await db.query(`UPDATE obras SET estado='activa', cerrada_at=NULL, updated_at=NOW() WHERE id=$1`, [id]);
   notify.calendar('fechas_actualizadas', Number(id));
   res.redirect(`/obras/${id}?msg=${encodeURIComponent('Obra reabierta')}`);
-});
+}));
 
-// exportar historial (CSV compatible con Excel)
-app.get('/obras/:id/export.csv', async (req, res) => {
+// ---------- exportación a Excel ----------
+const nombreArchivo = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '_').replace(/^_+|_+$/g, '');
+app.get('/obras/:id/export.xlsx', ruta(async (req, res) => {
   const data = await cargarObra(req.params.id);
-  if (!data) return res.status(404).send('Obra no encontrada');
-  const productos = await lineasProducto(true);
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = [];
-  lines.push(['Cliente', data.obra.cliente, 'Celular', data.obra.celular].map(esc).join(';'));
-  lines.push(['Obra', data.obra.obra, 'Dirección obra', data.obra.direccion_obra].map(esc).join(';'));
-  lines.push(['Maestro', data.obra.maestro, 'Celular maestro', data.obra.celular_maestro].map(esc).join(';'));
-  lines.push(['Precios', ...productos.map(p => `${p.nombre}: ${data.obra.precios?.[p.nombre] || ''}`)].map(esc).join(';'));
-  lines.push('');
-  lines.push(['Etapa', 'Programada', 'Aviso', 'Real', 'Estado', ...productos.map(p => p.nombre), 'Notas'].map(esc).join(';'));
-  for (const e of data.etapas) {
-    lines.push([e.nombre, fmt(e.fecha_programada), fmt(e.fecha_aviso), fmt(e.fecha_real), e.estado,
-      ...productos.map(p => { const v = data.ventas[`${e.id}:${p.id}`]; return v?.vendido ? (v.detalle ? `X - ${v.detalle}` : 'X') : ''; }), e.notas].map(esc).join(';'));
-  }
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="obra_${data.obra.id}_${data.obra.cliente.replace(/[^\w]+/g, '_')}.csv"`);
-  res.send('\ufeff' + lines.join('\r\n'));
-});
+  if (!data) return noEncontrado(res);
+  const buffer = await excel.libroObra(data, await lineasProducto(true));
+  enviarExcel(res, `FerreObras_obra_${data.obra.id}_${nombreArchivo(data.obra.cliente)}.xlsx`, buffer);
+}));
+// compatibilidad con enlaces antiguos
+app.get('/obras/:id/export.csv', (req, res) => res.redirect(301, `/obras/${req.params.id}/export.xlsx`));
+
+// ---------- panel de administración ----------
+app.get('/admin', requireAdmin, ruta(async (req, res) => {
+  const filtros = reportes.parsearFiltros(req.query);
+  const informe = await reportes.construir(filtros);
+  res.render('admin', { informe, filtros, opciones: reportes.OPCIONES, lineas: await lineasWhatsapp(), productos: await lineasProducto(true) });
+}));
+app.get('/admin/datos.json', requireAdmin, ruta(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(await reportes.construir(reportes.parsearFiltros(req.query)));
+}));
+app.get('/admin/export.xlsx', requireAdmin, ruta(async (req, res) => {
+  const informe = await reportes.construir(reportes.parsearFiltros(req.query));
+  const buffer = await excel.libroAdmin(informe);
+  enviarExcel(res, `FerreObras_informe_${informe.hoy}.xlsx`, buffer);
+}));
 
 // ---------- líneas de producto ----------
-app.get('/lineas', async (req, res) => res.render('lineas', { productos: await lineasProducto(true), msg: req.query.msg || null }));
-app.post('/lineas', async (req, res) => {
+app.get('/lineas', ruta(async (req, res) => res.render('lineas', { productos: await lineasProducto(true) })));
+app.post('/lineas', ruta(async (req, res) => {
   const nombre = (req.body.nombre || '').trim();
   if (nombre) await db.query(`INSERT INTO lineas_producto (nombre, orden) VALUES ($1, (SELECT COALESCE(MAX(orden),0)+1 FROM lineas_producto)) ON CONFLICT (nombre) DO UPDATE SET activa = TRUE`, [nombre]);
   res.redirect('/lineas?msg=' + encodeURIComponent('Línea guardada'));
-});
-app.post('/lineas/:id/estado', async (req, res) => {
+}));
+app.post('/lineas/:id/estado', ruta(async (req, res) => {
   await db.query('UPDATE lineas_producto SET activa = NOT activa WHERE id=$1', [req.params.id]);
   res.redirect('/lineas');
+}));
+
+// ---------- errores ----------
+app.use((req, res) => res.status(404).render('mensaje', { titulo: 'Página no encontrada', mensaje: 'La dirección que abriste no existe.' }));
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  console.error(err);
+  if (res.headersSent) return;
+  res.status(500).render('mensaje', { titulo: 'Algo salió mal', mensaje: 'Ocurrió un error inesperado. Intenta de nuevo; si persiste, avisa al administrador.' });
 });
 
 const port = process.env.PORT || 3000;

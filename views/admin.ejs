@@ -1,0 +1,118 @@
+<%- include('layout_head', { titulo: 'Administración' }) %>
+<% const sel = (a, b) => (a === b ? 'selected' : ''); %>
+<div class="pagina-cab">
+  <div>
+    <p class="sobre">Administración</p>
+    <h1>Panel de informes</h1>
+  </div>
+  <div class="acciones">
+    <span class="estado-carga" id="estado-carga" aria-live="polite"></span>
+    <a class="btn primario" id="btn-export" href="/admin/export.xlsx?<%= informe.query %>"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 2h8l4 4v12H4V2zm7 1.5V7h3.5L11 3.5zM6 9h2.2l1.3 2 1.3-2H13l-2.3 3.2L13 16h-2.2l-1.3-2.1L8.2 16H6l2.4-3.8L6 9z"/></svg>Exportar informe a Excel</a>
+  </div>
+</div>
+
+<form id="filtros" class="tarjeta filtros" autocomplete="off">
+  <div class="filtros-fila">
+    <div class="filtro-grupo">
+      <span class="filtro-titulo">Periodo</span>
+      <div class="filtro-campos">
+        <label>Desde <input type="date" name="desde" value="<%= filtros.desde || '' %>"></label>
+        <label>Hasta <input type="date" name="hasta" value="<%= filtros.hasta || '' %>"></label>
+        <label>Aplicar sobre
+          <select name="campo_fecha"><% opciones.campos_fecha.forEach(c => { %><option value="<%= c.id %>" <%= sel(filtros.campo_fecha, c.id) %>><%= c.nombre %></option><% }) %></select>
+        </label>
+      </div>
+    </div>
+    <div class="filtro-grupo">
+      <span class="filtro-titulo">Estado</span>
+      <div class="filtro-campos">
+        <label>Obra
+          <select name="estado_obra"><option value="">Todas</option><option value="activa" <%= sel(filtros.estado_obra, 'activa') %>>Activas</option><option value="cerrada" <%= sel(filtros.estado_obra, 'cerrada') %>>Cerradas</option></select>
+        </label>
+        <label>Etapa
+          <select name="estado_etapa"><option value="">Todas</option><option value="pendiente" <%= sel(filtros.estado_etapa, 'pendiente') %>>Pendientes</option><option value="vendida" <%= sel(filtros.estado_etapa, 'vendida') %>>Vendidas</option><option value="sin_venta" <%= sel(filtros.estado_etapa, 'sin_venta') %>>Sin venta</option></select>
+        </label>
+        <label>Top en rankings <input type="number" name="top" min="3" max="50" value="<%= filtros.top %>" class="corto"></label>
+      </div>
+    </div>
+  </div>
+  <div class="filtros-fila">
+    <div class="filtro-grupo">
+      <span class="filtro-titulo">Línea WhatsApp</span>
+      <div class="chips-check">
+        <% lineas.forEach(l => { %><label class="chip-check"><input type="checkbox" name="linea" value="<%= l.numero %>" <%= filtros.lineas.includes(l.numero) ? 'checked' : '' %>><span><%= l.numero %></span></label><% }) %>
+      </div>
+    </div>
+    <div class="filtro-grupo crece">
+      <span class="filtro-titulo">Línea de producto <small>(etapas donde se vendió alguna de las marcadas)</small></span>
+      <div class="chips-check">
+        <% productos.forEach(p => { %><label class="chip-check <%= p.activa ? '' : 'inactiva' %>"><input type="checkbox" name="producto" value="<%= p.nombre %>" <%= filtros.productos.includes(p.nombre) ? 'checked' : '' %>><span><%= p.nombre %></span></label><% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="filtros-fila grafica-config">
+    <div class="filtro-grupo crece">
+      <span class="filtro-titulo">Gráfica configurable</span>
+      <div class="filtro-campos">
+        <label>Métrica <select name="metrica"><% opciones.metricas.forEach(m => { %><option value="<%= m.id %>" <%= sel(filtros.metrica, m.id) %>><%= m.nombre %></option><% }) %></select></label>
+        <label>Agrupar por <select name="agrupar"><% opciones.dimensiones.forEach(d => { %><option value="<%= d.id %>" <%= sel(filtros.agrupar, d.id) %>><%= d.nombre %></option><% }) %></select></label>
+        <label>Segmentar por <select name="segmentar"><option value="">Sin segmentar</option><% opciones.dimensiones.forEach(d => { %><option value="<%= d.id %>" <%= sel(filtros.segmentar, d.id) %>><%= d.nombre %></option><% }) %></select></label>
+      </div>
+    </div>
+    <div class="filtro-acciones">
+      <button type="button" class="btn chico" id="limpiar-filtros">Limpiar filtros</button>
+    </div>
+  </div>
+  <p class="filtros-resumen" id="resumen-filtros"></p>
+</form>
+
+<section class="kpis" aria-label="Indicadores">
+  <div class="kpi"><span class="kpi-valor" data-kpi="obras">0</span><span class="kpi-nombre">Obras</span><span class="kpi-sub"><span data-kpi="activas">0</span> activas · <span data-kpi="cerradas">0</span> cerradas</span></div>
+  <div class="kpi"><span class="kpi-valor" data-kpi="clientes">0</span><span class="kpi-nombre">Clientes</span><span class="kpi-sub"><span data-kpi="obras_nuevas_30d">0</span> obras nuevas en 30 días</span></div>
+  <div class="kpi"><span class="kpi-valor" data-kpi="etapas">0</span><span class="kpi-nombre">Etapas</span><span class="kpi-sub"><span data-kpi="etapas_por_obra">0</span> por obra · cada <span data-kpi="intervalo_promedio">0</span> días</span></div>
+  <div class="kpi verde"><span class="kpi-valor" data-kpi="vendidas">0</span><span class="kpi-nombre">Etapas vendidas</span><span class="kpi-sub"><span data-kpi="ventas">0</span> checks de producto</span></div>
+  <div class="kpi gris"><span class="kpi-valor" data-kpi="sin_venta">0</span><span class="kpi-nombre">Sin venta</span><span class="kpi-sub"><span data-kpi="pendientes">0</span> pendientes</span></div>
+  <div class="kpi azul"><span class="kpi-valor"><span data-kpi="conversion">0</span>%</span><span class="kpi-nombre">Conversión</span><span class="kpi-sub">vendidas / decididas</span></div>
+  <div class="kpi rojo"><span class="kpi-valor" data-kpi="avisos_vencidos">0</span><span class="kpi-nombre">Avisos vencidos</span><span class="kpi-sub"><span data-kpi="avisos_hoy">0</span> para hoy</span></div>
+  <div class="kpi amarillo"><span class="kpi-valor" data-kpi="avisos_7d">0</span><span class="kpi-nombre">Avisos en 7 días</span><span class="kpi-sub"><span data-kpi="avisos_30d">0</span> en 30 días</span></div>
+</section>
+
+<section class="tarjeta grafica principal">
+  <div class="grafica-cab">
+    <h2 id="titulo-configurada">Gráfica configurable</h2>
+    <p class="ayuda" id="ayuda-configurada">Cambia métrica, agrupación y segmentación en los filtros de arriba.</p>
+  </div>
+  <div class="grafica-lienzo alta"><canvas id="g-configurada" role="img" aria-label="Gráfica configurable"></canvas><p class="grafica-vacia" hidden>Sin datos para los filtros aplicados.</p></div>
+</section>
+
+<section class="grilla-graficas">
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Etapas por línea WhatsApp</h2><p class="ayuda">Vendidas, sin venta y pendientes por asesora.</p></div><div class="grafica-lienzo"><canvas id="g-lineas"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Conversión por etapa</h2><p class="ayuda">En qué etapa se vende y en cuál se pierde el cliente.</p></div><div class="grafica-lienzo"><canvas id="g-etapas"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Ventas por línea de producto</h2><p class="ayuda">Veces que se marcó cada producto como vendido.</p></div><div class="grafica-lienzo"><canvas id="g-productos"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Obras creadas por mes</h2><p class="ayuda">Según la fecha de registro, separadas por estado actual.</p></div><div class="grafica-lienzo"><canvas id="g-meses"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Códigos de precio por producto</h2><p class="ayuda">Cuántas obras tienen cada código en cada línea.</p></div><div class="grafica-lienzo"><canvas id="g-codigos"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+  <div class="tarjeta grafica"><div class="grafica-cab"><h2>Avisos pendientes por semana</h2><p class="ayuda">Carga de trabajo de las próximas 8 semanas.</p></div><div class="grafica-lienzo"><canvas id="g-semanas"></canvas><p class="grafica-vacia" hidden>Sin datos.</p></div></div>
+</section>
+
+<section class="grilla-tablas">
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Alertas de aviso</h2><span class="ayuda">Vencidos, de hoy y próximos 7 días</span></div><div class="tabla-scroll" id="t-alertas"></div></div>
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Desempeño por línea WhatsApp</h2></div><div class="tabla-scroll" id="t-lineas"></div></div>
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Conversión por etapa</h2></div><div class="tabla-scroll" id="t-etapas"></div></div>
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Productos</h2><span class="ayuda">Participación = checks / etapas vendidas</span></div><div class="tabla-scroll" id="t-productos"></div></div>
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Clientes con más etapas vendidas</h2></div><div class="tabla-scroll" id="t-clientes"></div></div>
+  <div class="tarjeta sin-relleno"><div class="tabla-cab"><h2>Evolución mensual</h2></div><div class="tabla-scroll" id="t-meses"></div></div>
+</section>
+
+<section class="tarjeta sin-relleno">
+  <div class="tabla-herr">
+    <h2>Trazabilidad de obras</h2>
+    <label class="buscador"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M12.9 14.3a7 7 0 1 1 1.4-1.4l3.4 3.4-1.4 1.4-3.4-3.4zM8 13A5 5 0 1 0 8 3a5 5 0 0 0 0 10z"/></svg><input type="search" id="buscar-obras-admin" placeholder="Buscar cliente, obra, celular…" aria-label="Buscar en la tabla de obras"></label>
+    <span class="conteo" id="conteo-obras-admin"></span>
+  </div>
+  <div class="tabla-scroll" id="t-obras"></div>
+</section>
+
+<script id="datos-inicial" type="application/json"><%- JSON.stringify(informe).replace(/</g, '\\u003c') %></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" crossorigin="anonymous"></script>
+<script src="/static/admin.js" defer></script>
+<%- include('layout_foot') %>

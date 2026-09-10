@@ -1,16 +1,21 @@
 <%- include('layout_head', { titulo: obra && obra.id ? 'Editar obra' : 'Nueva obra' }) %>
 <% const v = (k) => (obra && obra[k] != null) ? obra[k] : ''; const editando = !!(obra && obra.id); %>
-<div class="encabezado">
-  <h1><%= editando ? 'Editar obra' : 'Nueva obra' %></h1>
-  <% if (editando) { %><a class="btn" href="/obras/<%= obra.id %>">Volver a la obra</a><% } %>
+<div class="pagina-cab">
+  <div>
+    <p class="sobre"><a href="/">Obras</a> / <%= editando ? obra.cliente : 'Registro' %></p>
+    <h1><%= editando ? 'Editar obra' : 'Nueva obra' %></h1>
+  </div>
+  <div class="acciones">
+    <% if (editando) { %><a class="btn" href="/obras/<%= obra.id %>">Volver a la obra</a><% } else { %><a class="btn" href="/">Cancelar</a><% } %>
+  </div>
 </div>
-<% if (error) { %><p class="error"><%= error %></p><% } %>
+<% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
 
 <form method="post" action="<%= editando ? `/obras/${obra.id}/editar` : '/obras' %>" class="formulario">
-  <fieldset>
-    <legend>Cliente</legend>
-    <label>Nombre del cliente <input name="cliente" value="<%= v('cliente') %>" required></label>
-    <label>Celular <input name="celular" value="<%= v('celular') %>" required inputmode="tel"></label>
+  <fieldset class="tarjeta">
+    <legend><span class="paso">1</span>Cliente</legend>
+    <label>Nombre del cliente <input name="cliente" value="<%= v('cliente') %>" required autofocus></label>
+    <label>Celular <input name="celular" value="<%= v('celular') %>" required inputmode="tel" placeholder="3001234567"></label>
     <label>Dirección del cliente <input name="direccion_cliente" value="<%= v('direccion_cliente') %>"></label>
     <label>Línea de WhatsApp que hace el seguimiento
       <select name="linea" required>
@@ -19,17 +24,17 @@
     </label>
   </fieldset>
 
-  <fieldset>
-    <legend>Obra</legend>
+  <fieldset class="tarjeta">
+    <legend><span class="paso">2</span>Obra</legend>
     <label>Obra o municipio <input name="obra" value="<%= v('obra') %>" required placeholder="Paipa"></label>
     <label>Dirección de la obra <input name="direccion_obra" value="<%= v('direccion_obra') %>"></label>
     <label>Maestro <input name="maestro" value="<%= v('maestro') %>"></label>
     <label>Celular del maestro <input name="celular_maestro" value="<%= v('celular_maestro') %>" inputmode="tel"></label>
-    <label>Notas <textarea name="notas" rows="2"><%= v('notas') %></textarea></label>
+    <label class="ancho-total">Notas <textarea name="notas" rows="2"><%= v('notas') %></textarea></label>
   </fieldset>
 
-  <fieldset>
-    <legend>Programación</legend>
+  <fieldset class="tarjeta">
+    <legend><span class="paso">3</span>Programación</legend>
     <% if (!editando) { %>
     <label>Fecha de cimentación <input type="date" name="fecha_cimentacion" value="<%= v('fecha_cimentacion') %>" required></label>
     <label>Número de placas <input type="number" name="num_placas" min="1" max="30" value="<%= v('num_placas') || 4 %>" required></label>
@@ -40,8 +45,8 @@
     <% } else { %><p class="ayuda">Estos valores aplican a las etapas que agregues de aquí en adelante; las existentes se ajustan desde el detalle de la obra.</p><% } %>
   </fieldset>
 
-  <fieldset>
-    <legend>Código de precio por línea</legend>
+  <fieldset class="tarjeta">
+    <legend><span class="paso">4</span>Código de precio por línea</legend>
     <div class="grilla-precios">
     <% const precios = (obra && obra.precios) || {}; productos.forEach(p => { const actual = precios[p.nombre] || (obra ? obra[`precio_${p.id}`] : '') || ''; %>
       <label><%= p.nombre %>
@@ -54,8 +59,8 @@
     </div>
   </fieldset>
 
-  <div class="acciones">
-    <button type="submit" class="btn primario"><%= editando ? 'Guardar cambios' : 'Crear obra y programar seguimientos' %></button>
+  <div class="acciones formulario-pie">
+    <button type="submit" class="btn primario grande"><%= editando ? 'Guardar cambios' : 'Crear obra y programar seguimientos' %></button>
   </div>
 </form>
 <%- include('layout_foot') %>

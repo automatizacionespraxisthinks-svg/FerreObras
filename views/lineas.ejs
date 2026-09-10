@@ -1,18 +1,34 @@
 <%- include('layout_head', { titulo: 'Líneas de producto' }) %>
-<div class="encabezado"><h1>Líneas de producto</h1></div>
-<% if (msg) { %><p class="aviso-ok"><%= msg %></p><% } %>
+<div class="pagina-cab">
+  <div>
+    <p class="sobre">Configuración</p>
+    <h1>Líneas de producto</h1>
+  </div>
+</div>
 <p class="ayuda">Estas son las columnas del historial de ventas. Desactivar una línea la oculta en las obras nuevas sin borrar lo ya registrado.</p>
-<table class="tabla">
-  <thead><tr><th>Línea</th><th>Estado</th><th></th></tr></thead>
-  <tbody>
-  <% productos.forEach(p => { %>
-    <tr><td><%= p.nombre %></td><td><%= p.activa ? 'Activa' : 'Inactiva' %></td>
-      <td><form method="post" action="/lineas/<%= p.id %>/estado"><button class="btn chico link"><%= p.activa ? 'Desactivar' : 'Activar' %></button></form></td></tr>
-  <% }) %>
-  </tbody>
-</table>
-<form method="post" action="/lineas" class="agregar-etapa">
-  <label>Nueva línea <input name="nombre" required placeholder="Ej. Tejas"></label>
-  <button class="btn chico primario">Agregar</button>
-</form>
+
+<div class="dos-columnas">
+  <div class="tarjeta sin-relleno">
+    <div class="tabla-scroll">
+    <table class="tabla">
+      <thead><tr><th>Línea</th><th>Estado</th><th class="col-accion"></th></tr></thead>
+      <tbody>
+      <% productos.forEach(p => { %>
+        <tr class="<%= p.activa ? '' : 'inactiva' %>">
+          <td data-etiqueta="Línea"><%= p.nombre %></td>
+          <td data-etiqueta="Estado"><span class="chip <%= p.activa ? 'ok' : '' %>"><%= p.activa ? 'Activa' : 'Inactiva' %></span></td>
+          <td class="col-accion"><form method="post" action="/lineas/<%= p.id %>/estado"><button class="btn chico <%= p.activa ? 'link' : '' %>"><%= p.activa ? 'Desactivar' : 'Activar' %></button></form></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <form method="post" action="/lineas" class="tarjeta agregar-linea">
+    <h2 class="tarjeta-titulo">Nueva línea</h2>
+    <label>Nombre <input name="nombre" required placeholder="Ej. Tejas" maxlength="60"></label>
+    <button class="btn primario">Agregar línea</button>
+    <p class="ayuda">Si escribes el nombre de una línea inactiva, se vuelve a activar.</p>
+  </form>
+</div>
 <%- include('layout_foot') %>

@@ -14,6 +14,8 @@ function diffDays(a, b) { // b - a en días
   return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
 }
 function hoyBogota() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); }
+// Para columnas TIMESTAMPTZ (created_at, updated_at, cerrada_at): la fecha en Bogotá, sin importar la zona del servidor.
+function toISOBogota(d) { if (!d) return null; return new Date(d).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); }
 
 /**
  * Recalcula fecha_programada y fecha_aviso de todas las etapas.
@@ -42,4 +44,4 @@ function etapasIniciales({ fecha_cimentacion, num_placas, intervalo_dias, dias_a
   for (let i = 1; i <= num_placas; i++) etapas.push({ orden: i, nombre: `Placa ${i}`, intervalo_dias, dias_aviso, fecha_programada: null, fecha_fija: false });
   return recalcular(etapas);
 }
-module.exports = { toISO, addDays, diffDays, hoyBogota, recalcular, etapasIniciales };
+module.exports = { toISO, toISOBogota, addDays, diffDays, hoyBogota, recalcular, etapasIniciales };

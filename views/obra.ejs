@@ -1,91 +1,135 @@
 <%- include('layout_head', { titulo: obra.cliente }) %>
-<% const hoyISO = hoy(); %>
-<div class="encabezado">
+<% const hoyISO = hoy();
+   const reales = etapas.filter(e => e.orden > 0);
+   const hechas = reales.filter(e => e.estado !== 'pendiente').length;
+   const vendidas = etapas.filter(e => e.estado === 'vendida').length;
+   const sinVenta = etapas.filter(e => e.estado === 'sin_venta').length;
+   const pctAvance = reales.length ? Math.round(hechas / reales.length * 100) : 0;
+   const proxima = reales.find(e => e.estado === 'pendiente');
+   const textoDias = (d) => d < 0 ? `hace ${-d} d` : d === 0 ? 'hoy' : `en ${d} d`;
+   const claseDias = (d) => d < 0 ? 'vencido' : d === 0 ? 'hoy' : d <= 3 ? 'pronto' : ''; %>
+<div class="pagina-cab">
   <div>
+    <p class="sobre"><a href="/">Obras</a> / <%= obra.obra %></p>
     <h1><%= obra.cliente %> <span class="estado-obra <%= obra.estado %>"><%= obra.estado === 'activa' ? 'en curso' : 'cerrada' %></span></h1>
-    <p class="sub"><%= obra.obra %><%= obra.direccion_obra ? ' · ' + obra.direccion_obra : '' %> · Línea <%= obra.linea %></p>
+    <p class="sub"><%= obra.obra %><%= obra.direccion_obra ? ' · ' + obra.direccion_obra : '' %> · <span class="etiqueta-linea">Línea <%= obra.linea %></span></p>
   </div>
   <div class="acciones">
-    <a class="btn" href="/obras/<%= obra.id %>/export.csv">Exportar a Excel</a>
+    <a class="btn" href="/obras/<%= obra.id %>/export.xlsx"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 2h8l4 4v12H4V2zm7 1.5V7h3.5L11 3.5zM6 9h2.2l1.3 2 1.3-2H13l-2.3 3.2L13 16h-2.2l-1.3-2.1L8.2 16H6l2.4-3.8L6 9z"/></svg>Exportar Excel</a>
     <a class="btn" href="/obras/<%= obra.id %>/editar">Editar datos</a>
     <% if (obra.estado === 'activa') { %>
-      <form method="post" action="/obras/<%= obra.id %>/cerrar" onsubmit="return confirm('¿Cerrar la obra? Se eliminan los avisos pendientes del calendario y, si el cliente no tiene otra obra activa, pasa a seguimiento de cliente inactivo.')"><button class="btn peligro">Cerrar obra</button></form>
+      <form method="post" action="/obras/<%= obra.id %>/cerrar" data-confirmar="¿Cerrar la obra? Se eliminan los avisos pendientes del calendario y, si el cliente no tiene otra obra activa, pasa a seguimiento de cliente inactivo."><button class="btn peligro">Cerrar obra</button></form>
     <% } else { %>
       <form method="post" action="/obras/<%= obra.id %>/reabrir"><button class="btn">Reabrir</button></form>
     <% } %>
   </div>
 </div>
-<% if (msg) { %><p class="aviso-ok"><%= msg %></p><% } %>
 
-<section class="ficha">
-  <dl>
-    <dt>Celular</dt><dd><%= obra.celular %></dd>
-    <dt>Dirección del cliente</dt><dd><%= obra.direccion_cliente || '—' %></dd>
-    <dt>Maestro</dt><dd><%= obra.maestro || '—' %><%= obra.celular_maestro ? ' · ' + obra.celular_maestro : '' %></dd>
-    <dt>Programación</dt><dd>cada <%= obra.intervalo_dias %> días, aviso <%= obra.dias_aviso %> días antes</dd>
-    <% if (obra.notas) { %><dt>Notas</dt><dd><%= obra.notas %></dd><% } %>
-  </dl>
-  <div class="precios">
-    <% productos.forEach(p => { const c = obra.precios && obra.precios[p.nombre]; %>
-      <span class="precio"><%= p.nombre %> <b><%= c || '—' %></b></span>
-    <% }) %>
+<section class="ficha-grid">
+  <div class="tarjeta ficha">
+    <h2 class="tarjeta-titulo">Datos</h2>
+    <dl>
+      <dt>Celular</dt><dd><a href="tel:<%= obra.celular %>"><%= obra.celular %></a></dd>
+      <dt>Dirección del cliente</dt><dd><%= obra.direccion_cliente || '—' %></dd>
+      <dt>Maestro</dt><dd><%= obra.maestro || '—' %><%= obra.celular_maestro ? ' · ' + obra.celular_maestro : '' %></dd>
+      <dt>Programación</dt><dd>cada <%= obra.intervalo_dias %> días, aviso <%= obra.dias_aviso %> días antes</dd>
+      <dt>Registrada</dt><dd><%= fmt(toISOBogota(obra.created_at)) %><%= obra.creada_por ? ' · por ' + (obra.creada_por === 'admin' ? 'administrador' : 'línea ' + obra.creada_por) : '' %></dd>
+      <% if (obra.notas) { %><dt>Notas</dt><dd><%= obra.notas %></dd><% } %>
+    </dl>
+  </div>
+  <div class="tarjeta ficha">
+    <h2 class="tarjeta-titulo">Avance</h2>
+    <div class="avance grande"><div class="avance-barra" style="width:<%= pctAvance %>%"></div></div>
+    <p class="avance-texto"><b><%= hechas %></b> de <b><%= reales.length %></b> etapas decididas · <b><%= pctAvance %>%</b></p>
+    <div class="mini-kpis">
+      <div class="mini-kpi"><b class="verde"><%= vendidas %></b><span>vendidas</span></div>
+      <div class="mini-kpi"><b class="gris"><%= sinVenta %></b><span>sin venta</span></div>
+      <div class="mini-kpi"><b class="naranja"><%= etapas.length - vendidas - sinVenta %></b><span>pendientes</span></div>
+    </div>
+    <% if (proxima) { const d = proxima.fecha_aviso ? diffDays(hoyISO, proxima.fecha_aviso) : null; %>
+      <p class="proxima"><span class="muted">Próxima:</span> <b><%= proxima.nombre %></b> el <%= fmt(proxima.fecha_programada) %>
+      <% if (d !== null) { %>· aviso <%= fmt(proxima.fecha_aviso) %> <span class="chip <%= claseDias(d) %>"><%= textoDias(d) %></span><% } %></p>
+    <% } else { %><p class="proxima muted">Sin etapas pendientes.</p><% } %>
+  </div>
+  <div class="tarjeta ficha">
+    <h2 class="tarjeta-titulo">Códigos de precio</h2>
+    <div class="precios">
+      <% productos.forEach(p => { const c = obra.precios && obra.precios[p.nombre]; %>
+        <span class="precio <%= c ? '' : 'sin' %>"><%= p.nombre %> <b><%= c || '—' %></b></span>
+      <% }) %>
+    </div>
   </div>
 </section>
 
-<h2>Etapas y ventas</h2>
-<p class="ayuda">Marca lo que compró el cliente en cada etapa y guarda la fila. Si cambias la fecha de una etapa, las siguientes se recalculan solas y el calendario se actualiza.</p>
+<section class="linea-tiempo" aria-label="Línea de tiempo de etapas">
+  <% etapas.forEach(e => { const d = e.fecha_aviso && e.estado === 'pendiente' ? diffDays(hoyISO, e.fecha_aviso) : null; %>
+    <a class="nodo <%= e.estado %> <%= d !== null ? claseDias(d) : '' %>" href="#etapa-<%= e.id %>">
+      <span class="nodo-punto"></span>
+      <span class="nodo-nombre"><%= e.nombre %></span>
+      <span class="nodo-fecha"><%= fmt(e.fecha_real || e.fecha_programada) %></span>
+    </a>
+  <% }) %>
+</section>
+
+<div class="seccion-cab">
+  <h2>Etapas y ventas</h2>
+  <p class="ayuda">Marca lo que compró el cliente en cada etapa y guarda la fila. Si cambias la fecha de una etapa, las siguientes se recalculan solas y el calendario se actualiza.</p>
+</div>
 
 <div class="etapas">
 <% etapas.forEach(e => {
      const dias = e.fecha_aviso ? diffDays(hoyISO, e.fecha_aviso) : null;
      let clase = e.estado;
      if (e.estado === 'pendiente' && dias !== null) { if (dias < 0) clase += ' vencido'; else if (dias <= 3) clase += ' pronto'; } %>
-  <form method="post" action="/obras/<%= obra.id %>/etapas/<%= e.id %>" class="etapa <%= clase %>">
+  <form method="post" action="/obras/<%= obra.id %>/etapas/<%= e.id %>" class="etapa tarjeta <%= clase %>" id="etapa-<%= e.id %>">
     <div class="etapa-cab">
-      <input name="nombre" value="<%= e.nombre %>" class="nombre-etapa" <%= e.orden === 0 ? 'readonly' : '' %>>
+      <span class="etapa-num"><%= e.orden === 0 ? 'C' : e.orden %></span>
+      <input name="nombre" value="<%= e.nombre %>" class="nombre-etapa" aria-label="Nombre de la etapa" <%= e.orden === 0 ? 'readonly' : '' %>>
       <% if (e.orden > 0) { %>
-        <label class="mini">Aviso <b><%= fmt(e.fecha_aviso) %></b>
-          <% if (e.estado === 'pendiente' && dias !== null) { %><span class="chip <%= dias < 0 ? 'vencido' : dias === 0 ? 'hoy' : dias <= 3 ? 'pronto' : '' %>"><%= dias < 0 ? `hace ${-dias} d` : dias === 0 ? 'hoy' : `en ${dias} d` %></span><% } %>
-        </label>
+        <span class="mini">Aviso <b><%= fmt(e.fecha_aviso) %></b>
+          <% if (e.estado === 'pendiente' && dias !== null) { %><span class="chip <%= claseDias(dias) %>"><%= textoDias(dias) %></span><% } %>
+        </span>
       <% } %>
-      <select name="estado" class="estado">
-        <option value="pendiente" <%= e.estado === 'pendiente' ? 'selected' : '' %>>Pendiente</option>
-        <option value="vendida" <%= e.estado === 'vendida' ? 'selected' : '' %>>Vendida</option>
-        <option value="sin_venta" <%= e.estado === 'sin_venta' ? 'selected' : '' %>>Sin venta</option>
-      </select>
+      <label class="estado-label">Estado
+        <select name="estado" class="estado">
+          <option value="pendiente" <%= e.estado === 'pendiente' ? 'selected' : '' %>>Pendiente</option>
+          <option value="vendida" <%= e.estado === 'vendida' ? 'selected' : '' %>>Vendida</option>
+          <option value="sin_venta" <%= e.estado === 'sin_venta' ? 'selected' : '' %>>Sin venta</option>
+        </select>
+      </label>
     </div>
     <div class="etapa-fechas">
       <label>Fecha <%= e.orden === 0 ? 'de cimentación' : 'programada' %> <input type="date" name="fecha_programada" value="<%= e.fecha_programada %>"></label>
       <% if (e.orden > 0) { %>
       <label>Fecha real <input type="date" name="fecha_real" value="<%= e.fecha_real || '' %>"></label>
-      <label>Intervalo <input type="number" name="intervalo_dias" min="1" value="<%= e.intervalo_dias %>" class="corto"> d</label>
-      <label>Aviso <input type="number" name="dias_aviso" min="1" value="<%= e.dias_aviso %>" class="corto"> d antes</label>
+      <label>Intervalo <span class="con-sufijo"><input type="number" name="intervalo_dias" min="1" value="<%= e.intervalo_dias %>" class="corto"><em>días después</em></span></label>
+      <label>Aviso <span class="con-sufijo"><input type="number" name="dias_aviso" min="1" value="<%= e.dias_aviso %>" class="corto"><em>días antes</em></span></label>
       <% } %>
     </div>
     <div class="ventas">
       <% productos.forEach(p => { const v = ventas[`${e.id}:${p.id}`] || {}; %>
-        <div class="venta">
+        <div class="venta <%= v.vendido ? 'marcada' : '' %>">
           <label class="check"><input type="checkbox" name="venta_<%= p.id %>" <%= v.vendido ? 'checked' : '' %>> <%= p.nombre %></label>
-          <input name="detalle_<%= p.id %>" value="<%= v.detalle || '' %>" placeholder="cantidad / detalle" class="detalle">
+          <input name="detalle_<%= p.id %>" value="<%= v.detalle || '' %>" placeholder="cantidad / detalle" class="detalle" aria-label="Detalle de <%= p.nombre %>">
         </div>
       <% }) %>
     </div>
     <div class="etapa-pie">
-      <input name="notas" value="<%= e.notas || '' %>" placeholder="Notas de la etapa" class="notas">
+      <input name="notas" value="<%= e.notas || '' %>" placeholder="Notas de la etapa" class="notas" aria-label="Notas de la etapa">
       <button type="submit" class="btn primario chico">Guardar</button>
       <% if (e.orden > 0 && e.estado === 'pendiente') { %>
-        <button type="submit" formaction="/obras/<%= obra.id %>/etapas/<%= e.id %>/eliminar" formnovalidate class="btn chico link" onclick="return confirm('¿Eliminar esta etapa?')">Eliminar</button>
+        <button type="submit" formaction="/obras/<%= obra.id %>/etapas/<%= e.id %>/eliminar" formnovalidate class="btn chico link" data-confirmar="¿Eliminar esta etapa?">Eliminar</button>
       <% } %>
     </div>
   </form>
 <% }) %>
 </div>
 
-<form method="post" action="/obras/<%= obra.id %>/etapas" class="agregar-etapa">
+<form method="post" action="/obras/<%= obra.id %>/etapas" class="agregar-etapa tarjeta">
   <strong>Agregar etapa al final</strong>
   <label>Nombre <input name="nombre" placeholder="Cubierta, Acabados, Placa 5…" required></label>
-  <label>Intervalo <input type="number" name="intervalo_dias" min="1" value="<%= obra.intervalo_dias %>" class="corto"> d después de la anterior</label>
-  <label>Aviso <input type="number" name="dias_aviso" min="1" value="<%= obra.dias_aviso %>" class="corto"> d antes</label>
+  <label>Intervalo <span class="con-sufijo"><input type="number" name="intervalo_dias" min="1" value="<%= obra.intervalo_dias %>" class="corto"><em>días después de la anterior</em></span></label>
+  <label>Aviso <span class="con-sufijo"><input type="number" name="dias_aviso" min="1" value="<%= obra.dias_aviso %>" class="corto"><em>días antes</em></span></label>
   <button type="submit" class="btn chico">Agregar</button>
 </form>
 <%- include('layout_foot') %>

@@ -1,0 +1,8 @@
+<%- include('layout_head', { titulo }) %>
+<div class="tarjeta mensaje-pagina">
+  <div class="mensaje-icono" aria-hidden="true">!</div>
+  <h1><%= titulo %></h1>
+  <p><%= mensaje %></p>
+  <a class="btn primario" href="<%= locals.esAdmin ? '/admin' : '/' %>">Volver al inicio</a>
+</div>
+<%- include('layout_foot') %>
