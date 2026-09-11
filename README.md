@@ -17,6 +17,8 @@ Asesora ──► FerreObras (esta app) ──► PostgreSQL
                     └──► Chatwoot          (al cerrar: etiqueta seg_mensual si no tiene otra obra activa)
 
 Administrador ──► /admin  (indicadores, gráficas de barras con filtros, tablas de trazabilidad, Excel)
+
+Asesora ──► /rutas  (planificador de despachos: clientes por municipio + mapa del recorrido)
 ```
 
 1. La asesora crea la obra: cliente, obra, maestro, línea de WhatsApp, fecha de cimentación, número de placas, intervalo entre placas, días de aviso y código de precio por línea de producto.
@@ -53,12 +55,35 @@ Si `ADMIN_PASS` no está definida, la opción de administrador no aparece en el 
 - **Tablas**: alertas de aviso, desempeño por línea, conversión por etapa, productos, clientes con más etapas vendidas, evolución mensual y trazabilidad de obras (buscable y ordenable, con enlace a cada obra).
 - **Exportar informe a Excel**: genera un libro con los mismos filtros (ver abajo).
 
+## Rutas de despacho (`/rutas`)
+
+Reemplaza la agenda de ferreterías en Excel con la que las asesoras armaban cada despacho. Está disponible para todas las cuentas desde el menú **Rutas** y tiene dos secciones:
+
+- **Planificador** (`/rutas`): a la izquierda se elige la ruta y aparecen, agrupados por municipio y en el orden del recorrido, los clientes que se pueden contactar. Son chips: la **×** quita al cliente del despacho, los punteados se vuelven a agregar con **+**, y al tocar el nombre se abre la ficha (teléfonos con enlace a llamada y WhatsApp, dirección, NIT, razón social, etc.), donde se registra el resultado del contacto (*por contactar, no contesta, pendiente respuesta, no necesita, despacho confirmado*), el peso en kg y una observación. También se pueden agregar clientes de otros municipios o crear uno nuevo. A la derecha, un mapa (OpenStreetMap) muestra la sede de salida, los municipios numerados, el recorrido por carretera con distancia y tiempo estimados, y un punto por cada cliente seleccionado con el color de su estado. El recorrido se puede abrir en Google Maps para navegar. La planificación se guarda por ruta y se exporta a Excel.
+- **Gestión de rutas** (`/rutas/gestion`): crear, editar, activar/desactivar y eliminar rutas (nombre, sede de salida, municipios en orden, frecuencia, días, próximo despacho, color y notas), ver cuántos clientes tiene cada municipio y qué ferreterías quedan fuera de toda ruta activa, e **importar la agenda de Excel**.
+
+### Cómo se calculan los clientes de una ruta
+- **Ferreterías** del directorio (`clientes_ruta`) cuyo municipio está entre los municipios de la ruta.
+- **Clientes de obras en curso** cuyo campo *Obra o municipio* (o la dirección de la obra o del cliente) menciona uno de esos municipios.
+- Los nombres se comparan sin tildes ni mayúsculas y con variantes conocidas ("VILLA DE LEIVA", "Santa Rosa" → Santa Rosa de Viterbo).
+
+### Importar la agenda de Excel
+Se leen las hojas con encabezado **CLIENTE**/NOMBRES y **MUNICIPIO**/CIUDAD (y, si existen, dirección, sector, NIT o cédula, razón social, teléfonos, tipología y volumen de compra) y la hoja **CRONOGRAMA RUTAS** (fila con RUTA 1, RUTA 2… y debajo los municipios separados por guiones y la frecuencia). Los clientes repetidos se reconocen por celular y municipio, o por nombre y municipio: solo se completan los datos que falten y se agregan celulares nuevos, nunca se borra lo editado en la aplicación. Las rutas que ya existen no se modifican.
+
+### Ubicación en el mapa
+- `src/municipios.js` trae las coordenadas de la cabecera de los 123 municipios de Boyacá y de las sedes (Duitama, Sogamoso y Planta de Figuración). Si una sede cambia, se ajusta ahí.
+- Cada cliente se dibuja alrededor del centro de su municipio (ubicación aproximada) hasta que la asesora lo **ubica en el mapa** con un clic o usa **Buscar dirección**.
+- Un municipio que no esté en el catálogo se busca en OpenStreetMap (Nominatim) y queda guardado en `rutas_geocache`.
+
+Servicios externos que usa el navegador: Leaflet (`cdn.jsdelivr.net`), mapas de `tile.openstreetmap.org` y el trazado por carretera de `router.project-osrm.org`; el servidor consulta `nominatim.openstreetmap.org` solo para municipios fuera del catálogo y para buscar direcciones a pedido. Si no hay internet, la lista de clientes y la planificación funcionan igual.
+
 ## Exportación a Excel
 
 Los archivos se generan con `exceljs` y tienen estructura y formato (títulos, encabezados azules, cebra, bordes, fechas y porcentajes con formato, filas de estado coloreadas, paneles congelados y filtros automáticos).
 
 - **Obra** (`/obras/:id/export.xlsx`): hojas *Resumen* (ficha, indicadores, códigos de precio), *Etapas*, *Ventas por etapa* (matriz etapa × producto con totales) y *Detalle de ventas*.
 - **Panel** (`/admin/export.xlsx?…filtros`): hojas *Resumen* (filtros aplicados e indicadores), *Por línea*, *Por etapa*, *Por producto*, *Por mes*, *Clientes*, *Alertas*, *Obras*, *Etapas*, *Ventas* y *Gráfica configurada*.
+- **Ruta** (`/rutas/:id/export.xlsx`): hojas *Planificación* (resumen por estado, peso confirmado y clientes seleccionados en orden de parada, con teléfonos, dirección, estado, peso y observación) y *No incluidos*.
 
 La ruta antigua `/obras/:id/export.csv` redirige al nuevo `.xlsx`.
 
@@ -71,10 +96,12 @@ app/                 Aplicación web (Node 20 + Express + EJS)
   src/server.js      Rutas, autenticación (líneas + administrador) y lógica
   src/calc.js        Cálculo de etapas y avisos
   src/reportes.js    Filtros, indicadores, tablas y series del panel de administración
-  src/excel.js       Libros de Excel (obra y panel) con estilo
+  src/excel.js       Libros de Excel (obra, panel y planificación de ruta) con estilo
+  src/rutas.js       Módulo de rutas: tablas, clientes por ruta, planificación, importación de la agenda
+  src/municipios.js  Catálogo de municipios de Boyacá y sedes con coordenadas
   src/notify.js      Avisos a n8n
-  views/             Plantillas (incluye admin.ejs, login.ejs, mensaje.ejs)
-  public/            style.css, app.js (común), admin.js (panel, usa Chart.js desde CDN)
+  views/             Plantillas (incluye admin.ejs, rutas_planificador.ejs, rutas_gestion.ejs, ruta_form.ejs)
+  public/            style.css, app.js (común), admin.js (panel, Chart.js), rutas.js (planificador, Leaflet)
   Dockerfile
   .env.example
 n8n/
@@ -92,8 +119,13 @@ schema.sql           Tablas de PostgreSQL
 | `ventas_etapa` | Check por línea de producto y etapa, con detalle libre |
 | `lineas_producto` | Columnas del historial; se pueden agregar o desactivar desde la app |
 | `lineas_whatsapp` | Línea → correo de la asesora invitada al evento |
+| `rutas` | Ruta: nombre, municipios en orden (`jsonb`), sede de salida, frecuencia, días, próximo despacho, color, activa |
+| `clientes_ruta` | Directorio de ferreterías: municipio, dirección, sector, NIT, razón social, teléfonos, tipología, volumen |
+| `rutas_plan` | Planificación por ruta y cliente (ferretería u obra): incluido, estado del contacto, peso, observación, quién lo actualizó |
+| `rutas_ubicaciones` | Ubicación fijada a mano en el mapa para una ferretería (`c`) o una obra (`o`) |
+| `rutas_geocache` | Coordenadas encontradas para municipios fuera del catálogo |
 
-El usuario administrador no requiere cambios en el esquema: se define por variables de entorno igual que las líneas.
+El usuario administrador no requiere cambios en el esquema: se define por variables de entorno igual que las líneas. Las tablas del módulo de rutas se crean solas al arrancar la aplicación si no existen (`CREATE TABLE IF NOT EXISTS`); requieren que ya exista la tabla `obras`.
 
 ---
 

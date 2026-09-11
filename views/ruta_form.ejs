@@ -1,0 +1,76 @@
+<% const editando = !!(r && r.id); %>
+<%- include('layout_head', { titulo: editando ? 'Editar ruta' : 'Nueva ruta' }) %>
+<% const v = (k) => (r && r[k] != null) ? r[k] : '';
+   const diasSel = r && r.dias ? String(r.dias).split(',').map(s => s.trim()) : [];
+   const color = (r && r.color) || colores[0];
+   const activa = r ? r.activa !== false : true;
+   const origen = r ? (r.origen || '') : sedes[0].clave; %>
+<div class="pagina-cab">
+  <div>
+    <p class="sobre"><a href="/rutas/gestion">Rutas</a> / <%= editando ? r.nombre : 'Registro' %></p>
+    <h1><%= editando ? 'Editar ruta' : 'Nueva ruta' %></h1>
+  </div>
+  <div class="acciones">
+    <% if (editando) { %><a class="btn" href="/rutas?ruta=<%= r.id %>">Ver en el planificador</a><% } %>
+    <a class="btn" href="/rutas/gestion">Cancelar</a>
+  </div>
+</div>
+<% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
+
+<form method="post" action="<%= editando ? `/rutas/${r.id}/editar` : '/rutas' %>" class="formulario" id="form-ruta">
+  <fieldset class="tarjeta">
+    <legend><span class="paso">1</span>Ruta</legend>
+    <label>Nombre <input name="nombre" value="<%= v('nombre') %>" required maxlength="80" placeholder="Ruta 1" <%= editando ? '' : 'autofocus' %>></label>
+    <label>Descripción <input name="descripcion" value="<%= v('descripcion') %>" maxlength="200" placeholder="Alto Ricaurte"></label>
+    <label>Sale de
+      <select name="origen">
+        <% sedes.forEach(s => { %><option value="<%= s.clave %>" <%= origen === s.clave ? 'selected' : '' %>><%= s.nombre %> · <%= s.direccion %></option><% }) %>
+        <option value="" <%= origen === '' ? 'selected' : '' %>>Sin sede (el recorrido inicia en el primer municipio)</option>
+      </select>
+    </label>
+    <div class="campo">
+      <span class="campo-titulo">Color en el mapa</span>
+      <div class="colores" role="radiogroup" aria-label="Color de la ruta">
+        <% colores.forEach(c => { %><label class="color-opcion" title="<%= c %>"><input type="radio" name="color" value="<%= c %>" <%= color === c ? 'checked' : '' %>><span style="background:<%= c %>"></span></label><% }) %>
+      </div>
+    </div>
+    <label class="check-linea ancho-total"><input type="checkbox" name="activa" <%= activa ? 'checked' : '' %>> Ruta activa <small>Las rutas inactivas no se tienen en cuenta para la cobertura, pero se pueden seguir consultando.</small></label>
+  </fieldset>
+
+  <fieldset class="tarjeta">
+    <legend><span class="paso">2</span>Municipios en orden de recorrido</legend>
+    <p class="ayuda">Los clientes cuyo municipio esté en esta lista aparecen en el planificador de la ruta. Ordénalos como se recorren desde la sede.</p>
+    <div class="paradas-editor ancho-total">
+      <ol class="paradas-orden" id="paradas-orden">
+        <% (r && r.paradas || []).forEach(p => { %><li class="parada-item"><span class="parada-num"></span><span class="parada-nombre"><%= p %></span><input type="hidden" name="paradas" value="<%= p %>"></li><% }) %>
+      </ol>
+      <p class="paradas-vacio" id="paradas-vacio" hidden>Todavía no hay municipios en la ruta.</p>
+      <div class="paradas-agregar">
+        <label>Agregar municipio <input id="parada-nueva" list="lista-municipios" placeholder="Escribe un municipio de Boyacá" autocomplete="off"></label>
+        <button type="button" class="btn" id="parada-agregar">Agregar</button>
+      </div>
+      <datalist id="lista-municipios"><% municipios.forEach(m => { %><option value="<%= m.nombre %>"></option><% }) %></datalist>
+    </div>
+  </fieldset>
+
+  <fieldset class="tarjeta">
+    <legend><span class="paso">3</span>Programación</legend>
+    <label>Frecuencia <input name="frecuencia" value="<%= v('frecuencia') %>" list="lista-frecuencias" maxlength="120" placeholder="Cada 15 días"></label>
+    <datalist id="lista-frecuencias"><% frecuencias.forEach(f => { %><option value="<%= f %>"></option><% }) %></datalist>
+    <label>Próximo despacho <input type="date" name="proximo_despacho" value="<%= v('proximo_despacho') %>"></label>
+    <div class="campo ancho-total">
+      <span class="campo-titulo">Días de despacho</span>
+      <div class="chips-check">
+        <% dias.forEach(d => { %><label class="chip-check"><input type="checkbox" name="dias" value="<%= d %>" <%= diasSel.includes(d) ? 'checked' : '' %>><span><%= d %></span></label><% }) %>
+      </div>
+    </div>
+    <label class="ancho-total">Notas <textarea name="notas" rows="2" placeholder="Ej. se rota con Jenesano y Ramiriquí"><%= v('notas') %></textarea></label>
+  </fieldset>
+
+  <div class="acciones formulario-pie">
+    <button type="submit" class="btn primario grande"><%= editando ? 'Guardar cambios' : 'Crear ruta' %></button>
+  </div>
+</form>
+<script id="municipios-catalogo" type="application/json"><%- JSON.stringify(municipios.map(m => m.nombre)).replace(/</g, '\\u003c') %></script>
+<script src="/static/rutas.js" defer></script>
+<%- include('layout_foot') %>

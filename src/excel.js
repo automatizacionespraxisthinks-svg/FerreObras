@@ -393,4 +393,50 @@ async function libroAdmin(informe) {
   return wb.xlsx.writeBuffer();
 }
 
-module.exports = { libroObra, libroAdmin };
+// ============================================================
+// Libro de la planificación de UNA ruta (reemplaza la hoja de llamadas por ruta)
+// ============================================================
+async function libroRuta({ ruta, paradas, sede, clientes, estados }) {
+  const wb = nuevoLibro();
+  const nombreEstadoRuta = Object.fromEntries(estados.map(e => [e.id, e.nombre]));
+  const tonoContacto = (id) => ({ despacho: 'verde', no_necesita: 'rojo', no_contesta: 'naranja', pendiente: 'naranja' }[id] || null);
+  const orden = (c) => (c.parada != null ? c.parada : 999);
+  const filas = (lista) => lista.slice().sort((a, b) => orden(a) - orden(b) || a.nombre.localeCompare(b.nombre, 'es')).map(c => ({
+    parada: c.parada != null ? `${c.parada + 1}. ${paradas[c.parada].nombre}` : `Fuera de ruta · ${c.municipio || '—'}`,
+    nombre: c.nombre, tipo: c.tipo === 'o' ? `Obra${c.obra ? ' · ' + c.obra : ''}` : 'Ferretería', telefonos: c.telefonos, direccion: c.direccion, sector: c.sector || '',
+    estado: nombreEstadoRuta[c.estado] || c.estado, estado_id: c.estado, peso: c.peso, observacion: c.observacion,
+  }));
+  const incluidos = clientes.filter(c => c.incluido), quitados = clientes.filter(c => !c.incluido);
+  const peso = incluidos.reduce((n, c) => n + (c.estado === 'despacho' && c.peso ? c.peso : 0), 0);
+  const cols = [
+    { titulo: 'Parada', clave: 'parada', tipo: 'texto', ancho: 22 }, { titulo: 'Cliente', clave: 'nombre', tipo: 'texto', ancho: 30 },
+    { titulo: 'Tipo', clave: 'tipo', tipo: 'texto', ancho: 16 }, { titulo: 'Teléfonos', clave: 'telefonos', tipo: 'texto', ancho: 26, wrap: true },
+    { titulo: 'Dirección', clave: 'direccion', tipo: 'texto', ancho: 26, wrap: true }, { titulo: 'Sector', clave: 'sector', tipo: 'texto', ancho: 16, wrap: true },
+    { titulo: 'Estado', clave: 'estado', tipo: 'texto', ancho: 18, align: 'center' }, { titulo: 'Peso (kg)', clave: 'peso', tipo: 'num', ancho: 10, decimales: true },
+    { titulo: 'Observación', clave: 'observacion', tipo: 'texto', ancho: 36, wrap: true },
+  ];
+  const sub = [ruta.proximo_despacho ? `Despacho ${fmtFecha(ruta.proximo_despacho)}` : 'Sin fecha de despacho', sede ? `Sale de ${sede.nombre}` : '', ruta.frecuencia, ruta.dias].filter(Boolean).join(' · ');
+
+  let ws = hoja(wb, 'Planificación', C.azul);
+  let f = titulo(ws, `${ruta.nombre} · ${paradas.map(p => p.nombre).join(' – ')}`, sub, cols.length);
+  ws.getColumn(1).width = 22;
+  f = seccion(ws, f, 'Resumen', cols.length);
+  const conteo = (id) => incluidos.filter(c => c.estado === id).length;
+  const a = ficha(ws, f, 2, [['Clientes seleccionados', incluidos.length], ['Ferreterías', incluidos.filter(c => c.tipo === 'c').length], ['Clientes de obras', incluidos.filter(c => c.tipo === 'o').length], ['Peso confirmado (kg)', peso, { numFmt: '#,##0.0' }]]);
+  const b = ficha(ws, f, 5, estados.map(e => [e.nombre, conteo(e.id)]));
+  f = Math.max(a, b) + 1;
+  f = seccion(ws, f, 'Clientes de la ruta', cols.length);
+  const inicio = f;
+  f = tabla(ws, f, cols, filas(incluidos), { colorEstado: (r) => tonoContacto(r.estado_id), columnaEstado: 'estado' });
+  ws.views = [{ state: 'frozen', ySplit: inicio, showGridLines: false }];
+
+  ws = hoja(wb, 'No incluidos', C.grisTexto);
+  f = titulo(ws, 'Clientes quitados de la ruta', `${ruta.nombre} · clientes de los municipios de la ruta que no se van a contactar`, cols.length);
+  ws.getColumn(1).width = 22;
+  tabla(ws, f, cols, filas(quitados));
+  congelar(ws, 4);
+
+  return wb.xlsx.writeBuffer();
+}
+
+module.exports = { libroObra, libroAdmin, libroRuta };

@@ -6,6 +6,7 @@ const calc = require('./calc');
 const notify = require('./notify');
 const reportes = require('./reportes');
 const excel = require('./excel');
+const rutas = require('./rutas');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -336,6 +337,92 @@ app.post('/lineas/:id/estado', ruta(async (req, res) => {
   res.redirect('/lineas');
 }));
 
+// ---------- rutas de despacho ----------
+// Dos secciones: el planificador (/rutas) y la gestión de rutas (/rutas/gestion).
+// El planificador consulta y guarda por /rutas/api/* (JSON) para no recargar el mapa.
+const api = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((e) => { console.error(e); if (!res.headersSent) res.status(500).json({ error: 'No se pudo completar la operación. Intenta de nuevo.' }); });
+const volverGestion = (res, msg) => res.redirect('/rutas/gestion?msg=' + encodeURIComponent(msg));
+const formRuta = async (res, r, error) => res.status(error ? 400 : 200).render('ruta_form', { r, error, ...rutas.opcionesFormulario() });
+
+app.get('/rutas', ruta(async (req, res) => {
+  const lista = await rutas.todasLasRutas();
+  const pedida = Number(req.query.ruta);
+  res.render('rutas_planificador', { rutas: lista, pedida: lista.some(r => r.id === pedida) ? pedida : null, estados: rutas.ESTADOS, ...rutas.opcionesFormulario() });
+}));
+app.get('/rutas/gestion', ruta(async (req, res) => res.render('rutas_gestion', await rutas.resumenGestion())));
+app.get('/rutas/nueva', ruta(async (req, res) => formRuta(res, null, null)));
+app.post('/rutas', ruta(async (req, res) => {
+  const d = rutas.datosRuta(req.body);
+  if (!d.nombre || !d.paradas.length) return formRuta(res, d, 'La ruta necesita un nombre y al menos un municipio.');
+  try { await rutas.crearRuta(d); } catch (e) { if (e.code === '23505') return formRuta(res, d, 'Ya existe una ruta con ese nombre.'); throw e; }
+  volverGestion(res, `Ruta "${d.nombre}" creada`);
+}));
+app.get('/rutas/:id(\\d+)/editar', ruta(async (req, res) => {
+  const r = await rutas.obtenerRuta(req.params.id);
+  if (!r) return noEncontrado(res, 'Ruta');
+  formRuta(res, r, null);
+}));
+app.post('/rutas/:id(\\d+)/editar', ruta(async (req, res) => {
+  const d = { ...rutas.datosRuta(req.body), id: Number(req.params.id) };
+  if (!(await rutas.obtenerRuta(d.id))) return noEncontrado(res, 'Ruta');
+  if (!d.nombre || !d.paradas.length) return formRuta(res, d, 'La ruta necesita un nombre y al menos un municipio.');
+  try { await rutas.actualizarRuta(d.id, d); } catch (e) { if (e.code === '23505') return formRuta(res, d, 'Ya existe otra ruta con ese nombre.'); throw e; }
+  volverGestion(res, `Ruta "${d.nombre}" guardada`);
+}));
+app.post('/rutas/:id(\\d+)/estado', ruta(async (req, res) => { await rutas.cambiarEstadoRuta(req.params.id); volverGestion(res, 'Estado de la ruta actualizado'); }));
+app.post('/rutas/:id(\\d+)/eliminar', ruta(async (req, res) => { await rutas.eliminarRuta(req.params.id); volverGestion(res, 'Ruta eliminada'); }));
+app.get('/rutas/:id(\\d+)/export.xlsx', ruta(async (req, res) => {
+  const datos = await rutas.datosPlanificador(req.params.id);
+  if (!datos) return noEncontrado(res, 'Ruta');
+  enviarExcel(res, `FerreObras_${nombreArchivo(datos.ruta.nombre)}_${datos.ruta.proximo_despacho || calc.hoyBogota()}.xlsx`, await excel.libroRuta(datos));
+}));
+app.post('/rutas/importar', express.raw({ type: 'application/octet-stream', limit: '15mb' }), api(async (req, res) => {
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'Selecciona un archivo de Excel (.xlsx).' });
+  let r;
+  try { r = await rutas.importarLibro(req.body); } catch (e) { console.warn('[rutas] importación rechazada:', e.message); return res.status(400).json({ error: 'No se pudo leer el archivo. Verifica que sea un Excel .xlsx.' }); }
+  if (!r.hojas && !r.rutas_creadas && !r.rutas_existentes) return res.status(400).json({ error: 'El archivo no tiene una hoja con columnas CLIENTE y MUNICIPIO ni un cronograma de rutas.' });
+  res.json({ ...r, mensaje: `Importación lista: ${r.rutas_creadas} ruta(s) nuevas, ${r.clientes_creados} cliente(s) nuevos, ${r.clientes_actualizados} actualizado(s) y ${r.clientes_sin_cambios} sin cambios.` });
+}));
+
+app.get('/rutas/api/:id(\\d+)', api(async (req, res) => {
+  const datos = await rutas.datosPlanificador(req.params.id);
+  if (!datos) return res.status(404).json({ error: 'La ruta no existe o fue eliminada.' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(datos);
+}));
+app.post('/rutas/api/:id(\\d+)/plan', api(async (req, res) => {
+  const fila = await rutas.guardarPlan(Number(req.params.id), req.body || {}, req.session.usuario);
+  if (!fila) return res.status(400).json({ error: 'Datos no válidos.' });
+  res.json(fila);
+}));
+app.post('/rutas/api/:id(\\d+)/plan/masivo', api(async (req, res) => {
+  await rutas.guardarPlanMasivo(Number(req.params.id), (req.body || {}).items, (req.body || {}).incluido, req.session.usuario);
+  res.json({ ok: true });
+}));
+app.post('/rutas/api/:id(\\d+)/reiniciar', api(async (req, res) => { await rutas.reiniciarPlan(Number(req.params.id)); res.json({ ok: true }); }));
+app.post('/rutas/api/:id(\\d+)/despacho', api(async (req, res) => { await rutas.fijarDespacho(Number(req.params.id), (req.body || {}).fecha); res.json({ ok: true }); }));
+app.get('/rutas/api/clientes', api(async (req, res) => res.json(await rutas.buscarClientes(String(req.query.q || '')))));
+app.post('/rutas/api/clientes', api(async (req, res) => {
+  const c = await rutas.crearCliente(req.body || {});
+  if (!c) return res.status(400).json({ error: 'El nombre del cliente es obligatorio.' });
+  res.json(rutas.fichaCliente(c));
+}));
+app.post('/rutas/api/clientes/:id(\\d+)', api(async (req, res) => {
+  const c = await rutas.actualizarCliente(Number(req.params.id), req.body || {});
+  if (!c) return res.status(400).json({ error: 'El nombre del cliente es obligatorio.' });
+  res.json(rutas.fichaCliente(c));
+}));
+app.post('/rutas/api/clientes/:id(\\d+)/eliminar', api(async (req, res) => { await rutas.eliminarCliente(Number(req.params.id)); res.json({ ok: true }); }));
+app.post('/rutas/api/ubicacion', api(async (req, res) => {
+  const b = req.body || {};
+  if (!(await rutas.guardarUbicacion(b.tipo, b.id, b.lat, b.lng))) return res.status(400).json({ error: 'Ubicación no válida.' });
+  res.json({ ok: true });
+}));
+app.get('/rutas/api/geocodificar', api(async (req, res) => {
+  const r = await rutas.geocodificarDireccion(req.query.tipo === 'o' ? 'o' : 'c', req.query.id);
+  res.status(r.error ? 422 : 200).json(r);
+}));
+
 // ---------- errores ----------
 app.use((req, res) => res.status(404).render('mensaje', { titulo: 'Página no encontrada', mensaje: 'La dirección que abriste no existe.' }));
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
@@ -345,4 +432,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`FerreObras escuchando en :${port}`));
+// Las tablas del módulo de rutas se crean solas si no existen (el resto del esquema sigue en schema.sql)
+rutas.asegurarEsquema()
+  .catch((e) => console.error('[rutas] no se pudieron crear las tablas del módulo de rutas:', e.message))
+  .finally(() => app.listen(port, () => console.log(`FerreObras escuchando en :${port}`)));
