@@ -148,13 +148,119 @@
     $('.kpi.rojo').classList.toggle('alerta', k.avisos_vencidos > 0);
   }
 
+  // ---------- ayuda de columnas (icono ⓘ en los encabezados) ----------
+  // Cada texto explica qué mide la columna y cómo se relaciona con la tabla general de trazabilidad de obras.
+  const INFO_COMUN = {
+    etapas: 'Total de etapas dentro de los filtros (cimentación, placas, cubierta…), sin importar su estado. Cada obra aporta sus etapas.',
+    vendidas: 'Etapas en las que el cliente compró: se marcaron como vendidas con al menos un producto. Coincide con la columna Vendidas de la trazabilidad de obras.',
+    sin_venta: 'Etapas ya decididas en las que no hubo venta: el cliente compró en otro lugar o no necesitó material.',
+    pendientes: 'Etapas todavía por decidir: aún no se marcan como vendidas ni sin venta. Son las que generan avisos.',
+    conversion: 'Vendidas ÷ (vendidas + sin venta), en porcentaje. Las pendientes no cuentan. Es la proporción de etapas decididas que terminaron en venta.',
+    ventas: 'Checks: número de productos marcados como vendidos, sumando todas las etapas. Una etapa vendida puede tener varios checks (uno por línea de producto).',
+  };
+  const INFO = {
+    alertas: {
+      cliente: 'Cliente de la obra y su celular. Al hacer clic en la fila se abre la obra.',
+      obra: 'Nombre o municipio de la obra, tal como se registró al crearla.',
+      linea: 'Línea de WhatsApp (asesora) que registró la obra y recibe el aviso en su calendario.',
+      etapa: 'Etapa de construcción a la que corresponde el aviso (placa, cubierta, etc.).',
+      fecha: 'Fecha programada de la etapa (o la real, si ya se registró). Es la fecha estimada en que el cliente necesita el material.',
+      fecha_aviso: 'Fecha en que se debe contactar al cliente: fecha de la etapa menos los días de aviso configurados. El chip muestra cuántos días faltan o hace cuántos se venció.',
+    },
+    lineas: {
+      linea: 'Línea de WhatsApp de la asesora y el correo donde recibe los eventos de Google Calendar.',
+      obras: 'Obras registradas por esta línea que cumplen los filtros; debajo, cuántas siguen activas (en seguimiento).',
+      ...INFO_COMUN,
+      avisos_vencidos: 'Avisos vencidos: ya pasó la fecha de aviso y la etapa sigue pendiente. También los avisos que vencen en los próximos 7 días.',
+    },
+    etapas: {
+      etapa: 'Nombre de la etapa. Agrupa las etapas con el mismo nombre en todas las obras del informe para ver en cuál se gana o se pierde al cliente.',
+      ...INFO_COMUN,
+      etapas: 'Cuántas obras tienen una etapa con este nombre dentro de los filtros.',
+    },
+    productos: {
+      producto: 'Línea de producto (columna del historial de ventas de cada obra). Las inactivas ya no se ofrecen, pero conservan su historial.',
+      ventas: 'Veces que este producto se marcó como vendido en alguna etapa (un check por etapa).',
+      obras_con_venta: 'Obras distintas en las que se vendió este producto al menos una vez.',
+      participacion: 'Checks del producto ÷ etapas vendidas. Indica en qué porcentaje de las etapas vendidas entró este producto.',
+      codigos: 'Cuántas obras del informe tienen cada código de precio (R+R, R, E, F) asignado para este producto.',
+    },
+    clientes: {
+      cliente: 'Cliente (nombre y celular) y la línea que lo atiende. Suma todas sus obras, aunque estén cerradas.',
+      obras: 'Obras registradas a nombre del cliente y cuántas siguen activas.',
+      vendidas: 'Etapas vendidas sumando todas las obras del cliente.',
+      sin_venta: 'Etapas sin venta sumando todas las obras del cliente.',
+      conversion: INFO_COMUN.conversion,
+      ventas: 'Productos marcados como vendidos en todas las etapas del cliente.',
+      ultima: 'Fecha de la última modificación en alguna de las obras del cliente.',
+    },
+    meses: {
+      etiqueta: 'Mes calendario. Las etapas se ubican por su fecha (real o programada); las obras, por su fecha de creación o cierre.',
+      obras_creadas: 'Obras registradas en la aplicación durante ese mes.',
+      obras_cerradas: 'Obras que se cerraron durante ese mes (terminaron o se cerraron a mano).',
+      ...INFO_COMUN,
+      etapas: 'Etapas cuya fecha (real o programada) cae en ese mes.',
+    },
+    obras: {
+      cliente: 'Nombre y celular del cliente. Clic en la fila para abrir la obra.',
+      obra: 'Nombre o municipio de la obra y la dirección donde se despacha.',
+      linea: 'Línea de WhatsApp que atiende la obra.',
+      estado: 'Activa: en seguimiento y genera avisos. Cerrada: terminó o se cerró a mano; ya no genera avisos.',
+      hechas: 'Etapas ya decididas (vendidas o sin venta) sobre el total de etapas de la obra. Refleja qué tan avanzada va la construcción.',
+      vendidas: 'Etapas de esta obra en las que se vendió.',
+      sin_venta: 'Etapas de esta obra que se marcaron sin venta.',
+      conversion: 'Vendidas ÷ (vendidas + sin venta) de esta obra, en porcentaje.',
+      ventas: 'Productos marcados como vendidos en todas las etapas de esta obra.',
+      proxima_fecha: 'Siguiente etapa pendiente de la obra y su fecha programada.',
+      dias_para_aviso: 'Fecha del próximo aviso (siguiente etapa menos los días de aviso) y cuántos días faltan o hace cuántos venció.',
+      creada: 'Fecha en que se registró la obra en la aplicación.',
+      actualizada: 'Fecha de la última modificación de la obra (etapas, ventas o datos).',
+    },
+  };
+  const iconoInfo = (titulo, texto) => `<button type="button" class="th-info" data-titulo="${esc(titulo)}" data-info="${esc(texto)}" aria-label="Qué significa ${esc(titulo)}"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M10 1.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM9 5.5h2v2H9v-2zm0 3.5h2v6H9V9z"/></svg></button>`;
+  // Un único globo flotante (position: fixed) para que no lo recorte el scroll de las tablas
+  const tip = document.createElement('div');
+  tip.className = 'tip'; tip.setAttribute('role', 'tooltip'); tip.hidden = true;
+  document.body.appendChild(tip);
+  let tipActual = null;
+  function mostrarTip(el) {
+    if (tipActual && tipActual !== el) tipActual.classList.remove('activo');
+    tipActual = el; el.classList.add('activo');
+    tip.innerHTML = `<b>${esc(el.dataset.titulo)}</b>${esc(el.dataset.info)}`;
+    tip.hidden = false;
+    const r = el.getBoundingClientRect(), ancho = tip.offsetWidth, alto = tip.offsetHeight;
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - ancho / 2, window.innerWidth - ancho - 8));
+    const abajo = r.bottom + 8 + alto <= window.innerHeight;
+    tip.classList.toggle('arriba', !abajo);
+    tip.style.top = `${abajo ? r.bottom + 8 : r.top - 8 - alto}px`;
+    tip.style.left = `${left}px`;
+    tip.style.setProperty('--flecha', `${r.left + r.width / 2 - left}px`);
+  }
+  function ocultarTip() { if (tipActual) tipActual.classList.remove('activo'); tipActual = null; tip.hidden = true; }
+  document.addEventListener('mouseover', (e) => { const b = e.target.closest('.th-info'); if (b && b !== tipActual) mostrarTip(b); });
+  document.addEventListener('mouseout', (e) => { const b = e.target.closest('.th-info'); if (b && b === tipActual && !b.contains(e.relatedTarget) && document.activeElement !== b) ocultarTip(); });
+  document.addEventListener('focusin', (e) => { const b = e.target.closest('.th-info'); if (b) mostrarTip(b); });
+  document.addEventListener('focusout', (e) => { const b = e.target.closest('.th-info'); if (b && b === tipActual) ocultarTip(); });
+  // El clic (o toque) muestra la ayuda sin ordenar la tabla; un clic fuera la cierra
+  document.addEventListener('click', (e) => { const b = e.target.closest('.th-info'); if (b) { e.stopPropagation(); mostrarTip(b); } else if (tipActual) ocultarTip(); }, true);
+  document.addEventListener('scroll', ocultarTip, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ocultarTip(); });
+
   // ---------- tablas ----------
   function tabla(contenedor, columnas, filas, opts) {
     opts = opts || {};
     const el = typeof contenedor === 'string' ? $(contenedor) : contenedor;
     if (!el) return;
     if (!filas.length) { el.innerHTML = `<p class="vacio-tabla">${esc(opts.vacio || 'Sin datos para los filtros aplicados.')}</p>`; return; }
-    const th = columnas.map(c => `<th class="${c.num ? 'num' : ''} ${opts.ordenable ? 'ordenable' : ''}" ${opts.ordenable ? `data-clave="${esc(c.clave)}"` : ''}>${esc(c.titulo)}${opts.ordenable && opts.orden && opts.orden.clave === c.clave ? (opts.orden.asc ? ' ▲' : ' ▼') : ''}</th>`).join('');
+    const info = opts.info || {};
+    // El icono ⓘ va pegado a la última palabra del título para que no quede solo en otra línea cuando el encabezado se parte
+    const titulo = (c) => {
+      const flecha = opts.ordenable && opts.orden && opts.orden.clave === c.clave ? (opts.orden.asc ? ' ▲' : ' ▼') : '';
+      if (!info[c.clave]) return esc(c.titulo) + flecha;
+      const palabras = c.titulo.split(' '), ultima = palabras.pop();
+      return `${palabras.length ? esc(palabras.join(' ')) + ' ' : ''}<span class="th-fin">${esc(ultima)}${flecha}${iconoInfo(c.titulo, info[c.clave])}</span>`;
+    };
+    const th = columnas.map(c => `<th class="${c.num ? 'num' : ''} ${opts.ordenable ? 'ordenable' : ''}" ${opts.ordenable ? `data-clave="${esc(c.clave)}"` : ''}>${titulo(c)}</th>`).join('');
     const tr = filas.map(f => `<tr class="${opts.claseFila ? opts.claseFila(f) : ''}" ${opts.href ? `data-href="${esc(opts.href(f))}"` : ''}>${columnas.map(c => `<td class="${c.num ? 'num' : ''}" data-etiqueta="${esc(c.titulo)}">${c.render ? c.render(f) : esc(f[c.clave])}</td>`).join('')}</tr>`).join('');
     el.innerHTML = `<table class="tabla compacta"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
     if (opts.href) $$('tr[data-href]', el).forEach(r => { r.classList.add('fila'); r.addEventListener('click', (ev) => { if (ev.target.closest('a')) return; window.location = r.dataset.href; }); });
@@ -171,7 +277,7 @@
       { titulo: 'Obra', clave: 'obra' }, { titulo: 'Línea', clave: 'linea' }, { titulo: 'Etapa', clave: 'etapa' },
       { titulo: 'Fecha etapa', clave: 'fecha', render: (f) => esc(fecha(f.fecha)) },
       { titulo: 'Aviso', clave: 'fecha_aviso', render: (f) => `${esc(fecha(f.fecha_aviso))} ${chipDias(f.dias)}` },
-    ], t.alertas, { vacio: 'No hay avisos vencidos ni próximos en 7 días.', href: (f) => `/obras/${f.obra_id}`, claseFila: (f) => f.estado });
+    ], t.alertas, { vacio: 'No hay avisos vencidos ni próximos en 7 días.', href: (f) => `/obras/${f.obra_id}`, claseFila: (f) => f.estado, info: INFO.alertas });
 
     tabla('#t-lineas', [
       { titulo: 'Línea', clave: 'linea', render: (f) => `<b>${esc(f.linea)}</b><small>${esc(f.correo)}</small>` },
@@ -180,13 +286,13 @@
       { titulo: 'Pendientes', clave: 'pendientes', num: true }, { titulo: 'Conversión', clave: 'conversion', num: true, render: (f) => `<b>${pct(f.conversion)}</b>` },
       { titulo: 'Checks', clave: 'ventas', num: true },
       { titulo: 'Avisos', clave: 'avisos_vencidos', num: true, render: (f) => `${f.avisos_vencidos ? `<span class="chip vencido">${num(f.avisos_vencidos)} vencidos</span>` : ''} ${f.avisos_7d ? `<span class="chip pronto">${num(f.avisos_7d)} en 7 d</span>` : ''}${!f.avisos_vencidos && !f.avisos_7d ? '—' : ''}` },
-    ], t.porLinea);
+    ], t.porLinea, { info: INFO.lineas });
 
     tabla('#t-etapas', [
       { titulo: 'Etapa', clave: 'etapa' }, { titulo: 'Etapas', clave: 'etapas', num: true }, { titulo: 'Vendidas', clave: 'vendidas', num: true },
       { titulo: 'Sin venta', clave: 'sin_venta', num: true }, { titulo: 'Pendientes', clave: 'pendientes', num: true },
       { titulo: 'Conversión', clave: 'conversion', num: true, render: (f) => `<span class="medida"><span class="barra-mini"><div style="width:${Math.min(100, f.conversion)}%"></div></span><b>${pct(f.conversion)}</b></span>` },
-    ], t.porEtapa);
+    ], t.porEtapa, { info: INFO.etapas });
 
     const codigos = informe.catalogos.codigos;
     tabla('#t-productos', [
@@ -194,7 +300,7 @@
       { titulo: 'Checks', clave: 'ventas', num: true }, { titulo: 'Obras con venta', clave: 'obras_con_venta', num: true },
       { titulo: 'Participación', clave: 'participacion', num: true, render: (f) => `<span class="medida"><span class="barra-mini"><div style="width:${Math.min(100, f.participacion)}%"></div></span><b>${pct(f.participacion)}</b></span>` },
       { titulo: 'Códigos', clave: 'codigos', render: (f) => codigos.filter(c => f.codigos[c]).map(c => `<span class="chip codigo">${esc(c)} <b>${num(f.codigos[c])}</b></span>`).join(' ') || '—' },
-    ], t.porProducto);
+    ], t.porProducto, { info: INFO.productos });
 
     tabla('#t-clientes', [
       { titulo: 'Cliente', clave: 'cliente', render: (f) => `<b>${esc(f.cliente)}</b><small>${esc(f.celular)} · línea ${esc(f.lineas)}</small>` },
@@ -202,13 +308,13 @@
       { titulo: 'Vendidas', clave: 'vendidas', num: true }, { titulo: 'Sin venta', clave: 'sin_venta', num: true },
       { titulo: 'Conversión', clave: 'conversion', num: true, render: (f) => pct(f.conversion) }, { titulo: 'Checks', clave: 'ventas', num: true },
       { titulo: 'Última act.', clave: 'ultima', render: (f) => esc(fecha(f.ultima)) },
-    ], t.topClientes);
+    ], t.topClientes, { info: INFO.clientes });
 
     tabla('#t-meses', [
       { titulo: 'Mes', clave: 'etiqueta' }, { titulo: 'Obras creadas', clave: 'obras_creadas', num: true }, { titulo: 'Cerradas', clave: 'obras_cerradas', num: true },
       { titulo: 'Etapas', clave: 'etapas', num: true }, { titulo: 'Vendidas', clave: 'vendidas', num: true }, { titulo: 'Sin venta', clave: 'sin_venta', num: true },
       { titulo: 'Conversión', clave: 'conversion', num: true, render: (f) => pct(f.conversion) }, { titulo: 'Checks', clave: 'ventas', num: true },
-    ], t.porMes);
+    ], t.porMes, { info: INFO.meses });
 
     renderObras();
     const total = k.obras;
@@ -239,11 +345,12 @@
       { titulo: 'Aviso', clave: 'dias_para_aviso', render: (f) => (f.proxima_aviso ? `${chipDias(f.dias_para_aviso)}<small>${esc(fecha(f.proxima_aviso))}</small>` : '—') },
       { titulo: 'Creada', clave: 'creada', render: (f) => esc(fecha(f.creada)) },
       { titulo: 'Actualizada', clave: 'actualizada', render: (f) => esc(fecha(f.actualizada)) },
-    ], filas, { href: (f) => `/obras/${f.id}`, ordenable: true, orden: ordenObras, alOrdenar: (c) => { ordenObras = { clave: c, asc: ordenObras.clave === c ? !ordenObras.asc : true }; renderObras(); }, claseFila: (f) => claseDias(f.estado === 'activa' ? f.dias_para_aviso : null) });
+    ], filas, { info: INFO.obras, href: (f) => `/obras/${f.id}`, ordenable: true, orden: ordenObras, alOrdenar: (c) => { ordenObras = { clave: c, asc: ordenObras.clave === c ? !ordenObras.asc : true }; renderObras(); }, claseFila: (f) => claseDias(f.estado === 'activa' ? f.dias_para_aviso : null) });
   }
   $('#buscar-obras-admin').addEventListener('input', renderObras);
 
   function render() {
+    ocultarTip();
     renderKpis();
     renderGraficas();
     renderTablas();

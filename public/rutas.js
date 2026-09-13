@@ -328,6 +328,8 @@
     }
     function pintarResumen() {
       const inc = datos.clientes.filter(c => c.incluido), fe = filtroEstado.value;
+      // Peso total de la ruta: suma del peso asignado a todos los clientes seleccionados (sirve para elegir el camión).
+      const conPeso = inc.filter(c => c.peso), pesoTotal = conPeso.reduce((n, c) => n + c.peso, 0), sinPeso = inc.length - conPeso.length;
       const peso = inc.filter(c => c.estado === 'despacho').reduce((n, c) => n + (c.peso || 0), 0);
       $('#plan-resumen').innerHTML = `<span class="chip-kpi"><b>${inc.length}</b> de ${datos.clientes.length} seleccionado${inc.length === 1 ? '' : 's'}</span>` +
         datos.estados.map(e => {
@@ -335,12 +337,13 @@
           if (!n && fe !== e.id && e.id !== 'despacho') return '';
           return `<button type="button" class="chip-kpi chip-estado ${fe === e.id ? 'activo' : ''}" data-estado="${e.id}" aria-pressed="${fe === e.id}" title="Filtrar por ${esc(e.nombre.toLowerCase())}"><span class="punto-estado" style="--estado:${COLOR_ESTADO[e.id]}"></span><b>${n}</b> ${esc(e.nombre.toLowerCase())}</button>`;
         }).join('') +
-        (peso ? `<span class="chip-kpi ok"><b>${num(peso)}</b> kg confirmados</span>` : '');
+        (pesoTotal ? `<span class="chip-kpi peso" title="Suma del peso asignado a los ${conPeso.length} clientes seleccionados con peso${sinPeso ? `. ${sinPeso} seleccionado${sinPeso === 1 ? '' : 's'} sin peso asignado` : ''}. Úsalo para escoger el camión."><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M1 4h11v3h3.5L18 10.5V15h-1.5a2 2 0 0 1-4 0h-5a2 2 0 0 1-4 0H1V4zm11 5v3.2a2.6 2.6 0 0 1 2 1.3h2.5v-2.7L14.6 9H12z"/></svg><b>${num(pesoTotal)}</b> kg en la ruta${sinPeso ? `<small>· ${sinPeso} sin peso</small>` : ''}</span>` : '') +
+        (peso && peso !== pesoTotal ? `<span class="chip-kpi ok" title="Peso de los clientes con despacho confirmado"><b>${num(peso)}</b> kg confirmados</span>` : '');
     }
     function chip(c) {
       const accion = c.incluido ? 'quitar' : 'agregar';
       return `<span class="chip-cliente ${c.incluido ? '' : 'excluido'} ${c.key === fichaKey ? 'resaltado' : ''}" data-key="${c.key}" style="--estado:${COLOR_ESTADO[c.estado]}">` +
-        `<button type="button" class="chip-cliente-abrir" data-abrir title="${esc(`${c.nombre} · ${estadoNombre(c.estado)}${c.telefonos ? ' · ' + c.telefonos : ''}`)}"><span class="punto-estado"></span>${c.tipo === 'o' ? '<span class="chip-tag">Obra</span>' : ''}<span class="chip-cliente-nombre">${esc(c.nombre)}</span>${c.estado === 'despacho' && c.peso ? `<span class="chip-peso">${num(c.peso)} kg</span>` : ''}</button>` +
+        `<button type="button" class="chip-cliente-abrir" data-abrir title="${esc(`${c.nombre} · ${estadoNombre(c.estado)}${c.telefonos ? ' · ' + c.telefonos : ''}`)}"><span class="punto-estado"></span>${c.tipo === 'o' ? '<span class="chip-tag">Obra</span>' : ''}<span class="chip-cliente-nombre">${esc(c.nombre)}</span>${c.peso ? `<span class="chip-peso" title="Peso asignado">${num(c.peso)} kg</span>` : ''}</button>` +
         `<button type="button" class="chip-cliente-accion" data-${accion} aria-label="${c.incluido ? 'Quitar' : 'Agregar'} ${esc(c.nombre)} ${c.incluido ? 'de' : 'a'} la ruta" title="${c.incluido ? 'Quitar de la ruta' : 'Agregar a la ruta'}">${c.incluido ? '×' : '+'}</button></span>`;
     }
     function pintarGrupos() {
@@ -359,10 +362,13 @@
         const lista = s.clientes.filter(coincide);
         if ((q || fe) && !lista.length) return '';
         const inc = lista.filter(c => c.incluido), exc = lista.filter(c => !c.incluido), totalInc = s.clientes.filter(c => c.incluido).length;
+        const kg = s.clientes.filter(c => c.incluido && c.peso).reduce((n, c) => n + c.peso, 0);
+        const kgHtml = kg ? ` · <span class="parada-kg" title="Peso asignado a los clientes seleccionados de este municipio">${num(kg)} kg</span>` : '';
+        const meta = s.fuera ? (kg ? `<span class="parada-meta">${totalInc} seleccionado${totalInc === 1 ? '' : 's'}${kgHtml}</span>` : '') : `<span class="parada-meta">${s.clientes.length ? `${totalInc} de ${s.clientes.length}${kgHtml}` : 'sin clientes registrados'}</span>`;
         return `<section class="parada-grupo ${s.fuera ? 'fuera' : ''} ${s.clientes.length ? '' : 'vacia'}" ${s.i != null ? `data-parada="${s.i}"` : ''}>
           <header class="parada-cab">
             <button type="button" class="parada-num" ${s.i != null && s.parada.lat != null ? `data-enfocar="${s.i}" title="Ver ${esc(s.titulo)} en el mapa"` : 'tabindex="-1"'}>${s.num}</button>
-            <h3>${esc(s.titulo)}${s.fuera ? '' : ` <span class="parada-meta">${s.clientes.length ? `${totalInc} de ${s.clientes.length}` : 'sin clientes registrados'}</span>`}</h3>
+            <h3>${esc(s.titulo)} ${meta}</h3>
             ${s.clientes.length > 1 && !s.fuera && !q && !fe ? `<button type="button" class="btn chico link-suave" data-masivo="${totalInc ? '0' : '1'}">${totalInc ? 'Quitar todos' : 'Agregar todos'}</button>` : ''}
           </header>
           ${inc.length ? `<div class="chips-clientes">${inc.map(chip).join('')}</div>` : ''}
@@ -498,10 +504,10 @@
             ${dato('Notas', c.notas)}${dato('Ubicación', ubicacion)}
           </dl>
           <form class="ficha-plan" id="ficha-plan" style="--estado:${COLOR_ESTADO[c.estado]}">
-            <h3 class="tarjeta-titulo">Contacto para este despacho</h3>
+            <h3 class="tarjeta-titulo">Despacho</h3>
+            <p class="ficha-plan-nota">${c.peso ? `<span class="chip ok">Despacho confirmado</span> ${num(c.peso)} kg` : `Escribe el peso para confirmar el despacho${c.incluido ? '' : ': el cliente pasa automáticamente a la ruta'}.`}</p>
             <div class="ficha-plan-campos">
-              <label>Resultado <select name="estado">${datos.estados.map(e => `<option value="${e.id}" ${c.estado === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select></label>
-              <label class="campo-peso" ${c.estado === 'despacho' ? '' : 'hidden'}>Peso (kg) <input type="number" name="peso" min="0" step="0.1" inputmode="decimal" value="${c.peso != null ? c.peso : ''}"></label>
+              <label class="campo-peso">Peso (kg) <input type="number" name="peso" min="0" step="0.1" inputmode="decimal" placeholder="Ej. 850" value="${c.peso != null ? c.peso : ''}"><small>Se suma al peso total de la ruta para elegir el camión</small></label>
               <label class="ancho-total">Observación <input name="observacion" maxlength="500" value="${esc(c.observacion)}" placeholder="Ej. llamar después de las 2 p. m."></label>
             </div>
             <p class="ficha-guardado" aria-live="polite">${c.actualizado_por ? `Actualizado por ${esc(quien(c.actualizado_por))} · ${esc(cuando(c.actualizado))}` : ''}</p>
@@ -527,20 +533,26 @@
       const aviso = $('.ficha-guardado', contenido);
       if (aviso) aviso.textContent = 'Guardando…';
       try {
+        const antes = { incluido: c.incluido, estado: c.estado };
         const fila = await pedir(`/rutas/api/${datos.ruta.id}/plan`, { body: { tipo: c.tipo, id: c.id, [campo]: valor } });
         Object.assign(c, { estado: fila.estado, incluido: fila.incluido, peso: fila.peso != null ? Number(fila.peso) : null, observacion: fila.observacion || '', actualizado_por: fila.actualizado_por, actualizado: fila.updated_at });
-        if (aviso && aviso.isConnected) aviso.textContent = `Guardado · ${quien(c.actualizado_por)} · ${cuando(c.actualizado)}`;
         refrescar();
+        // Al asignar o quitar el peso cambia el estado del despacho (y puede pasar a la ruta): se vuelve a pintar la ficha
+        if (campo === 'peso' && fichaKey === c.key && dialogo.open && (antes.incluido !== c.incluido || antes.estado !== c.estado)) {
+          const activo = document.activeElement && document.activeElement.name;
+          abrirFicha(c.key);
+          const nota = $('.ficha-guardado', contenido);
+          if (nota) nota.textContent = `${!antes.incluido && c.incluido ? 'Agregado a la ruta · ' : ''}Guardado · ${quien(c.actualizado_por)} · ${cuando(c.actualizado)}`;
+          const foco = activo && $(`#ficha-plan [name="${activo}"]`, contenido);
+          if (foco) foco.focus();
+          return;
+        }
+        if (aviso && aviso.isConnected) aviso.textContent = `Guardado · ${quien(c.actualizado_por)} · ${cuando(c.actualizado)}`;
       } catch (e) { if (aviso && aviso.isConnected) aviso.textContent = e.message; else avisar(e.message, true); }
     }
     contenido.addEventListener('change', (e) => {
       const form = e.target.closest('#ficha-plan'), c = clientePorKey(fichaKey);
       if (!form || !c || !e.target.name) return;
-      if (e.target.name === 'estado') {
-        $('.campo-peso', form).hidden = e.target.value !== 'despacho';
-        form.style.setProperty('--estado', COLOR_ESTADO[e.target.value]);
-        if (e.target.value === 'despacho') $('input[name=peso]', form).focus();
-      }
       guardarCampo(c, e.target.name, e.target.value);
     });
     contenido.addEventListener('submit', (e) => { if (e.target.id === 'ficha-plan') e.preventDefault(); });
@@ -566,7 +578,7 @@
       if (form && c) {
         const obs = $('input[name=observacion]', form).value.trim(), peso = $('input[name=peso]', form).value;
         if (obs !== (c.observacion || '')) guardarCampo(c, 'observacion', obs);
-        if (!$('.campo-peso', form).hidden && String(peso) !== String(c.peso != null ? c.peso : '')) guardarCampo(c, 'peso', peso);
+        if (String(peso) !== String(c.peso != null ? c.peso : '')) guardarCampo(c, 'peso', peso);
       }
       fichaKey = null;
       $$('.chip-cliente.resaltado', grupos).forEach(x => x.classList.remove('resaltado'));

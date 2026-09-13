@@ -84,7 +84,9 @@ async function asegurarEsquema() {
       lng DOUBLE PRECISION,
       descripcion TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );`);
+    );
+    -- Un peso asignado significa despacho confirmado y cliente incluido en la ruta (normaliza datos de versiones anteriores)
+    UPDATE rutas_plan SET estado = 'despacho', incluido = TRUE WHERE peso > 0 AND (estado <> 'despacho' OR NOT incluido);`);
 }
 
 // ---------- utilidades ----------
@@ -289,20 +291,25 @@ async function guardarPlan(rutaId, b, usuario, client = db) {
   const tipo = b.tipo === 'o' ? 'o' : 'c', refId = Number(b.id);
   if (!Number.isInteger(refId) || refId <= 0) return null;
   const col = colPlan(tipo);
-  const incluido = typeof b.incluido === 'boolean' ? b.incluido : null;
-  const estado = ESTADOS.some(e => e.id === b.estado) ? b.estado : null;
-  const conPeso = 'peso' in b, peso = b.peso === '' || b.peso == null ? null : Number(b.peso);
-  if (conPeso && peso !== null && !(peso >= 0 && peso < 1e6)) return null;
+  let incluido = typeof b.incluido === 'boolean' ? b.incluido : null;
+  let estado = ESTADOS.some(e => e.id === b.estado) ? b.estado : null;
+  const conPeso = 'peso' in b, peso = b.peso === '' || b.peso == null || Number(b.peso) === 0 ? null : Number(b.peso);
+  if (conPeso && peso !== null && !(peso > 0 && peso < 1e6)) return null;
+  // Asignar un peso confirma el despacho: el cliente queda incluido en la ruta y en estado "despacho".
+  // Quitar el peso devuelve el estado a "por contactar" si estaba confirmado.
+  if (conPeso && peso !== null) { incluido = true; estado = 'despacho'; }
+  const quitarPeso = conPeso && peso === null;
   const conObs = 'observacion' in b, obs = nota(b.observacion, 500);
   return (await client.query(
     `INSERT INTO rutas_plan (ruta_id, ${col}, incluido, estado, peso, observacion, actualizado_por)
      VALUES ($1, $2, COALESCE($3, TRUE), COALESCE($4, 'por_contactar'), $5, $6, $7)
      ON CONFLICT (ruta_id, ${col}) WHERE ${col} IS NOT NULL DO UPDATE SET
-       incluido = COALESCE($3, rutas_plan.incluido), estado = COALESCE($4, rutas_plan.estado),
+       incluido = COALESCE($3, rutas_plan.incluido),
+       estado = CASE WHEN $10 AND rutas_plan.estado = 'despacho' THEN 'por_contactar' ELSE COALESCE($4, rutas_plan.estado) END,
        peso = CASE WHEN $8 THEN $5 ELSE rutas_plan.peso END, observacion = CASE WHEN $9 THEN $6 ELSE rutas_plan.observacion END,
        actualizado_por = $7, updated_at = NOW()
      RETURNING *`,
-    [rutaId, refId, incluido, estado, conPeso ? peso : null, conObs ? obs : null, usuario, conPeso, conObs])).rows[0];
+    [rutaId, refId, incluido, estado, conPeso ? peso : null, conObs ? obs : null, usuario, conPeso, conObs, quitarPeso])).rows[0];
 }
 async function guardarPlanMasivo(rutaId, items, incluido, usuario) {
   await db.tx(async (client) => { for (const it of (Array.isArray(items) ? items : []).slice(0, 500)) await guardarPlan(rutaId, { tipo: it.tipo, id: it.id, incluido: !!incluido }, usuario, client); });

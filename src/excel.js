@@ -407,7 +407,8 @@ async function libroRuta({ ruta, paradas, sede, clientes, estados }) {
     estado: nombreEstadoRuta[c.estado] || c.estado, estado_id: c.estado, peso: c.peso, observacion: c.observacion,
   }));
   const incluidos = clientes.filter(c => c.incluido), quitados = clientes.filter(c => !c.incluido);
-  const peso = incluidos.reduce((n, c) => n + (c.estado === 'despacho' && c.peso ? c.peso : 0), 0);
+  const kg = (lista) => lista.reduce((n, c) => n + (c.peso ? c.peso : 0), 0);
+  const pesoTotal = kg(incluidos), peso = kg(incluidos.filter(c => c.estado === 'despacho'));
   const cols = [
     { titulo: 'Parada', clave: 'parada', tipo: 'texto', ancho: 22 }, { titulo: 'Cliente', clave: 'nombre', tipo: 'texto', ancho: 30 },
     { titulo: 'Tipo', clave: 'tipo', tipo: 'texto', ancho: 16 }, { titulo: 'Teléfonos', clave: 'telefonos', tipo: 'texto', ancho: 26, wrap: true },
@@ -422,7 +423,7 @@ async function libroRuta({ ruta, paradas, sede, clientes, estados }) {
   ws.getColumn(1).width = 22;
   f = seccion(ws, f, 'Resumen', cols.length);
   const conteo = (id) => incluidos.filter(c => c.estado === id).length;
-  const a = ficha(ws, f, 2, [['Clientes seleccionados', incluidos.length], ['Ferreterías', incluidos.filter(c => c.tipo === 'c').length], ['Clientes de obras', incluidos.filter(c => c.tipo === 'o').length], ['Peso confirmado (kg)', peso, { numFmt: '#,##0.0' }]]);
+  const a = ficha(ws, f, 2, [['Clientes seleccionados', incluidos.length], ['Ferreterías', incluidos.filter(c => c.tipo === 'c').length], ['Clientes de obras', incluidos.filter(c => c.tipo === 'o').length], ['Peso total en la ruta (kg)', pesoTotal, { numFmt: '#,##0.0' }], ['Peso confirmado (kg)', peso, { numFmt: '#,##0.0' }]]);
   const b = ficha(ws, f, 5, estados.map(e => [e.nombre, conteo(e.id)]));
   f = Math.max(a, b) + 1;
   f = seccion(ws, f, 'Clientes de la ruta', cols.length);

@@ -52,14 +52,14 @@ Si `ADMIN_PASS` no está definida, la opción de administrador no aparece en el 
 - **Indicadores**: obras, clientes, etapas, vendidas, sin venta, pendientes, conversión, checks de producto, avisos vencidos / de hoy / 7 días / 30 días, promedio de etapas por obra, duración de obras cerradas.
 - **Gráfica configurable**: elige la métrica (obras, etapas, vendidas, sin venta, pendientes, conversión, ventas por producto), la dimensión de agrupación (línea, mes, etapa, obra, cliente, producto, código de precio, estados) y una segmentación opcional. Las barras se apilan o agrupan según corresponda.
 - **Gráficas fijas**: etapas por línea, conversión por etapa, ventas por producto, obras creadas por mes, códigos de precio por producto y avisos pendientes por semana.
-- **Tablas**: alertas de aviso, desempeño por línea, conversión por etapa, productos, clientes con más etapas vendidas, evolución mensual y trazabilidad de obras (buscable y ordenable, con enlace a cada obra).
+- **Tablas**: alertas de aviso, desempeño por línea, conversión por etapa, productos, clientes con más etapas vendidas, evolución mensual y trazabilidad de obras (buscable y ordenable, con enlace a cada obra). Cada columna lleva un icono ⓘ que, al pasar el cursor o tocarlo, explica qué mide y cómo se relaciona con la tabla de trazabilidad.
 - **Exportar informe a Excel**: genera un libro con los mismos filtros (ver abajo).
 
 ## Rutas de despacho (`/rutas`)
 
 Reemplaza la agenda de ferreterías en Excel con la que las asesoras armaban cada despacho. Está disponible para todas las cuentas desde el menú **Rutas** y tiene dos secciones:
 
-- **Planificador** (`/rutas`): a la izquierda se elige la ruta y aparecen, agrupados por municipio y en el orden del recorrido, los clientes que se pueden contactar. Son chips: la **×** quita al cliente del despacho, los punteados se vuelven a agregar con **+**, y al tocar el nombre se abre la ficha (teléfonos con enlace a llamada y WhatsApp, dirección, NIT, razón social, etc.), donde se registra el resultado del contacto (*por contactar, no contesta, pendiente respuesta, no necesita, despacho confirmado*), el peso en kg y una observación. También se pueden agregar clientes de otros municipios o crear uno nuevo. A la derecha, un mapa (OpenStreetMap) muestra la sede de salida, los municipios numerados, el recorrido por carretera con distancia y tiempo estimados, y un punto por cada cliente seleccionado con el color de su estado. El recorrido se puede abrir en Google Maps para navegar. La planificación se guarda por ruta y se exporta a Excel.
+- **Planificador** (`/rutas`): a la izquierda se elige la ruta y aparecen, agrupados por municipio y en el orden del recorrido, los clientes que se pueden contactar. Son chips: la **×** quita al cliente del despacho, los punteados se vuelven a agregar con **+**, y al tocar el nombre se abre la ficha (teléfonos con enlace a llamada y WhatsApp, dirección, NIT, razón social, etc.), donde solo se piden el peso en kg y una observación. **Escribir el peso confirma el despacho**: el cliente pasa al estado *despacho confirmado* y, si estaba fuera, se agrega automáticamente a la ruta; borrar el peso lo devuelve a *por contactar*. El peso se muestra en el chip, se suma por municipio y en la cabecera aparece el **peso total de la ruta**, para decidir qué camión enviar. También se pueden agregar clientes de otros municipios o crear uno nuevo. A la derecha, un mapa (OpenStreetMap) muestra la sede de salida, los municipios numerados, el recorrido por carretera con distancia y tiempo estimados, y un punto por cada cliente seleccionado con el color de su estado. El recorrido se puede abrir en Google Maps para navegar. La planificación se guarda por ruta y se exporta a Excel.
 - **Gestión de rutas** (`/rutas/gestion`): crear, editar, activar/desactivar y eliminar rutas (nombre, sede de salida, municipios en orden, frecuencia, días, próximo despacho, color y notas), ver cuántos clientes tiene cada municipio y qué ferreterías quedan fuera de toda ruta activa, e **importar la agenda de Excel**.
 
 ### Cómo se calculan los clientes de una ruta
@@ -83,7 +83,7 @@ Los archivos se generan con `exceljs` y tienen estructura y formato (títulos, e
 
 - **Obra** (`/obras/:id/export.xlsx`): hojas *Resumen* (ficha, indicadores, códigos de precio), *Etapas*, *Ventas por etapa* (matriz etapa × producto con totales) y *Detalle de ventas*.
 - **Panel** (`/admin/export.xlsx?…filtros`): hojas *Resumen* (filtros aplicados e indicadores), *Por línea*, *Por etapa*, *Por producto*, *Por mes*, *Clientes*, *Alertas*, *Obras*, *Etapas*, *Ventas* y *Gráfica configurada*.
-- **Ruta** (`/rutas/:id/export.xlsx`): hojas *Planificación* (resumen por estado, peso confirmado y clientes seleccionados en orden de parada, con teléfonos, dirección, estado, peso y observación) y *No incluidos*.
+- **Ruta** (`/rutas/:id/export.xlsx`): hojas *Planificación* (resumen por estado, peso total en la ruta, peso confirmado y clientes seleccionados en orden de parada, con teléfonos, dirección, estado, peso y observación) y *No incluidos*.
 
 La ruta antigua `/obras/:id/export.csv` redirige al nuevo `.xlsx`.
 
@@ -171,6 +171,10 @@ cp .env.example .env      # ajusta DATABASE_URL, claves de línea y ADMIN_PASS
 npm install
 npm start                 # http://localhost:3000
 ```
+
+El servidor lee el archivo `.env` automáticamente al arrancar si existe (en Dokploy no hace falta: las variables llegan por el entorno del contenedor y tienen prioridad sobre el archivo). Si una clave lleva `#`, escríbela entre comillas.
+
+**Logo.** La cabecera y el login usan `public/logo-ferreaceros.svg` (recreación del logo de FerreAceros). Si se copia el archivo original como `public/logo-ferreaceros.png`, la app lo usa en su lugar sin cambiar código.
 
 La app no crea tablas: aplica `schema.sql` antes de arrancar. El panel de administración carga Chart.js desde `cdn.jsdelivr.net`; si el navegador no tiene salida a internet, las tablas e indicadores se muestran igual y las gráficas indican que la librería no cargó.
 

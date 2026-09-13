@@ -1,5 +1,9 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+// En desarrollo local carga el archivo .env si existe (en Dokploy las variables llegan por el entorno del contenedor).
+// Las variables ya definidas en el entorno tienen prioridad sobre las del archivo. Debe ir antes de cargar ./db.
+try { if (typeof process.loadEnvFile === 'function') process.loadEnvFile(path.join(__dirname, '..', '.env')); } catch (e) { /* sin .env: se usan solo las variables del entorno */ }
 const cookieSession = require('cookie-session');
 const db = require('./db');
 const calc = require('./calc');
@@ -34,6 +38,8 @@ console.log(adminHabilitado() ? `[auth] administrador habilitado (usuario "${ADM
 // ---------- helpers ----------
 const fmt = (iso) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-'); return `${d}/${m}/${y}`; };
 app.locals.fmt = fmt;
+// Logo de la cabecera: si se copia el archivo original public/logo-ferreaceros.png se usa ese; si no, la versión SVG.
+app.locals.logoSrc = fs.existsSync(path.join(__dirname, '..', 'public', 'logo-ferreaceros.png')) ? '/static/logo-ferreaceros.png' : '/static/logo-ferreaceros.svg';
 app.locals.hoy = calc.hoyBogota;
 app.locals.toISO = calc.toISO;
 app.locals.toISOBogota = calc.toISOBogota;
