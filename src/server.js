@@ -356,6 +356,14 @@ app.get('/rutas', ruta(async (req, res) => {
   res.render('rutas_planificador', { rutas: lista, pedida: lista.some(r => r.id === pedida) ? pedida : null, estados: rutas.ESTADOS, ...rutas.opcionesFormulario() });
 }));
 app.get('/rutas/gestion', ruta(async (req, res) => res.render('rutas_gestion', await rutas.resumenGestion())));
+// Agenda: directorio de ferreterías y clientes de obras, con exportación a Excel respetando los filtros de la pantalla
+app.get('/agenda', ruta(async (req, res) => res.render('agenda', { ...(await rutas.agenda()), municipios: rutas.opcionesFormulario().municipios })));
+app.get('/agenda/export.xlsx', ruta(async (req, res) => {
+  const q = req.query;
+  const lista = rutas.filtrarAgenda((await rutas.agenda()).contactos, q);
+  const descripcion = [q.q ? `búsqueda "${q.q}"` : '', q.tipo === 'c' ? 'solo ferreterías' : q.tipo === 'o' ? 'solo clientes de obras' : '', q.municipio ? `municipio ${q.municipio}` : '', q.ruta ? `ruta ${q.ruta}` : ''].filter(Boolean).join(' · ');
+  enviarExcel(res, `FerreObras_agenda_${calc.hoyBogota()}.xlsx`, await excel.libroAgenda(lista, descripcion));
+}));
 app.get('/rutas/nueva', ruta(async (req, res) => formRuta(res, null, null)));
 app.post('/rutas', ruta(async (req, res) => {
   const d = rutas.datosRuta(req.body);

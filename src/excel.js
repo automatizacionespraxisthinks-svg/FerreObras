@@ -440,4 +440,36 @@ async function libroRuta({ ruta, paradas, sede, clientes, estados }) {
   return wb.xlsx.writeBuffer();
 }
 
-module.exports = { libroObra, libroAdmin, libroRuta };
+// ============================================================
+// Libro de la AGENDA de contactos (ferreterías y clientes de obras)
+// ============================================================
+async function libroAgenda(contactos, descripcionFiltro) {
+  const wb = nuevoLibro();
+  const prep = (c) => ({ ...c, rutas_texto: (c.rutas || []).join(', ') });
+  const ferreterias = contactos.filter(c => c.tipo === 'c').map(prep), obras = contactos.filter(c => c.tipo === 'o').map(prep);
+  const sub = (n) => `${n} contacto${n === 1 ? '' : 's'}${descripcionFiltro ? ' · ' + descripcionFiltro : ''} · exportado el ${fmtFecha(calc.hoyBogota())}`;
+  const colsF = [
+    { titulo: 'Cliente', clave: 'nombre', tipo: 'texto', ancho: 30 }, { titulo: 'Municipio', clave: 'municipio', tipo: 'texto', ancho: 18 },
+    { titulo: 'Teléfonos', clave: 'telefonos', tipo: 'texto', ancho: 26, wrap: true }, { titulo: 'Dirección', clave: 'direccion', tipo: 'texto', ancho: 28, wrap: true },
+    { titulo: 'Sector', clave: 'sector', tipo: 'texto', ancho: 16 }, { titulo: 'NIT o cédula', clave: 'nit', tipo: 'texto', ancho: 14 },
+    { titulo: 'Razón social', clave: 'razon_social', tipo: 'texto', ancho: 24 }, { titulo: 'Tipología', clave: 'tipologia', tipo: 'texto', ancho: 16 },
+    { titulo: 'Volumen de compra', clave: 'volumen_compra', tipo: 'texto', ancho: 16 }, { titulo: 'Rutas', clave: 'rutas_texto', tipo: 'texto', ancho: 20, wrap: true },
+    { titulo: 'Notas', clave: 'notas', tipo: 'texto', ancho: 30, wrap: true },
+  ];
+  const colsO = [
+    { titulo: 'Cliente', clave: 'nombre', tipo: 'texto', ancho: 30 }, { titulo: 'Obra', clave: 'obra', tipo: 'texto', ancho: 22 },
+    { titulo: 'Municipio', clave: 'municipio', tipo: 'texto', ancho: 18 }, { titulo: 'Teléfonos', clave: 'telefonos', tipo: 'texto', ancho: 18 },
+    { titulo: 'Dirección de la obra', clave: 'direccion', tipo: 'texto', ancho: 28, wrap: true }, { titulo: 'Maestro', clave: 'maestro', tipo: 'texto', ancho: 20 },
+    { titulo: 'Celular maestro', clave: 'celular_maestro', tipo: 'texto', ancho: 16 }, { titulo: 'Línea WhatsApp', clave: 'linea', tipo: 'texto', ancho: 14, align: 'center' },
+    { titulo: 'Rutas', clave: 'rutas_texto', tipo: 'texto', ancho: 20, wrap: true }, { titulo: 'Notas', clave: 'notas', tipo: 'texto', ancho: 30, wrap: true },
+  ];
+  let ws = hoja(wb, 'Ferreterías', C.azul);
+  let f = titulo(ws, 'Agenda de contactos · Ferreterías', sub(ferreterias.length), colsF.length);
+  tabla(ws, f, colsF, ferreterias); congelar(ws, 4);
+  ws = hoja(wb, 'Clientes de obras', C.verdeTexto);
+  f = titulo(ws, 'Agenda de contactos · Clientes de obras en curso', sub(obras.length), colsO.length);
+  tabla(ws, f, colsO, obras); congelar(ws, 4);
+  return wb.xlsx.writeBuffer();
+}
+
+module.exports = { libroObra, libroAdmin, libroRuta, libroAgenda };

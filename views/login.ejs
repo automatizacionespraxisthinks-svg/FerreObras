@@ -38,7 +38,27 @@
         <% if (adminUser) { %><optgroup label="Administración"><option value="__admin__">Administrador</option></optgroup><% } %>
       </select>
     </label>
-    <label>Clave <input type="password" name="clave" required autofocus autocomplete="current-password"></label>
+    <label>Clave
+      <span class="campo-clave">
+        <input type="password" name="clave" id="clave" required autofocus autocomplete="current-password">
+        <button type="button" class="ver-clave" id="ver-clave" aria-pressed="false" aria-label="Mostrar clave" title="Mostrar clave" aria-controls="clave">
+          <svg class="icono-mostrar" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M10 4C5.5 4 2.3 7.3 1 10c1.3 2.7 4.5 6 9 6s7.7-3.3 9-6c-1.3-2.7-4.5-6-9-6zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+          <svg class="icono-ocultar" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M2.7 1.3L1.3 2.7l3 3C2.8 6.8 1.7 8.4 1 10c1.3 2.7 4.5 6 9 6 1.6 0 3-.4 4.3-1l3 3 1.4-1.4-16-15.3zM10 14a4 4 0 0 1-3.3-6.2l1.5 1.5a2 2 0 0 0 2.5 2.5l1.5 1.5A4 4 0 0 1 10 14zm3.9-1.5l-2.6-2.6A4 4 0 0 0 8 6.7L6.3 5C7.4 4.4 8.6 4 10 4c4.5 0 7.7 3.3 9 6-.8 1.6-2.1 3.1-3.7 4.3l-1.4-1.8z"/></svg>
+        </button>
+      </span>
+    </label>
+    <script>
+      (function () {
+        var b = document.getElementById('ver-clave'), i = document.getElementById('clave');
+        b.addEventListener('click', function () {
+          var ver = i.type === 'password';
+          i.type = ver ? 'text' : 'password';
+          b.setAttribute('aria-pressed', ver ? 'true' : 'false');
+          b.setAttribute('aria-label', ver ? 'Ocultar clave' : 'Mostrar clave'); b.title = ver ? 'Ocultar clave' : 'Mostrar clave';
+          i.focus();
+        });
+      })();
+    </script>
     <button type="submit" class="btn primario grande">Entrar</button>
     <p class="login-nota">Uso interno de FerreAceros. Si no recuerdas la clave, pídesela al administrador.</p>
   </form>

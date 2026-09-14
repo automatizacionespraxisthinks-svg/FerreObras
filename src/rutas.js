@@ -505,6 +505,27 @@ async function importarLibro(buffer) {
   return res;
 }
 
+// ---------- agenda: directorio completo de contactos (ferreterías y clientes de obras en curso) ----------
+async function agenda() {
+  const [contactos, lista] = await Promise.all([cargarUniverso(), todasLasRutas()]);
+  // municipio -> rutas activas que pasan por él
+  const rutasPorMunicipio = {};
+  for (const r of lista) {
+    if (!r.activa) continue;
+    for (const p of r.paradas) { const k = mun.clave(p); (rutasPorMunicipio[k] = rutasPorMunicipio[k] || []).push(r.nombre); }
+  }
+  for (const c of contactos) c.rutas = rutasPorMunicipio[c.clave_municipio] || [];
+  return { contactos, rutas: lista.filter(r => r.activa).map(r => r.nombre), rutasPorMunicipio };
+}
+// Mismo filtro que aplica la pantalla (búsqueda libre, tipo, municipio y ruta); lo usa la exportación a Excel
+function filtrarAgenda(contactos, f = {}) {
+  const q = mun.normalizar(f.q), digitos = String(f.q || '').replace(/\D/g, '');
+  const tipo = f.tipo === 'c' || f.tipo === 'o' ? f.tipo : '', municipio = mun.clave(f.municipio || ''), rutaNombre = String(f.ruta || '');
+  return contactos.filter(c => (!tipo || c.tipo === tipo) && (!municipio || c.clave_municipio === municipio) && (!rutaNombre || c.rutas.includes(rutaNombre))
+    && (!q || mun.normalizar([c.nombre, c.razon_social, c.obra, c.direccion, c.sector, c.municipio, c.nit, c.tipologia, c.maestro].join(' ')).includes(q)
+      || (digitos.length >= 3 && c.telefonos.replace(/\D/g, '').includes(digitos))));
+}
+
 function opcionesFormulario() {
   return { frecuencias: FRECUENCIAS, dias: DIAS, colores: COLORES, sedes: mun.SEDES, municipios: mun.MUNICIPIOS };
 }
@@ -512,7 +533,7 @@ function opcionesFormulario() {
 module.exports = {
   ESTADOS, asegurarEsquema, opcionesFormulario,
   obtenerRuta, todasLasRutas, datosRuta, crearRuta, actualizarRuta, cambiarEstadoRuta, eliminarRuta, fijarDespacho,
-  datosPlanificador, guardarPlan, guardarPlanMasivo, reiniciarPlan, resumenGestion,
+  datosPlanificador, guardarPlan, guardarPlanMasivo, reiniciarPlan, resumenGestion, agenda, filtrarAgenda,
   crearCliente, actualizarCliente, eliminarCliente, buscarClientes, guardarUbicacion, geocodificarDireccion, fichaCliente,
   importarLibro, celulares,
 };

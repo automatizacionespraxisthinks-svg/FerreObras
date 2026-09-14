@@ -505,9 +505,10 @@
           </dl>
           <form class="ficha-plan" id="ficha-plan" style="--estado:${COLOR_ESTADO[c.estado]}">
             <h3 class="tarjeta-titulo">Despacho</h3>
-            <p class="ficha-plan-nota">${c.peso ? `<span class="chip ok">Despacho confirmado</span> ${num(c.peso)} kg` : `Escribe el peso para confirmar el despacho${c.incluido ? '' : ': el cliente pasa automáticamente a la ruta'}.`}</p>
+            <p class="ficha-plan-nota">${c.peso || c.estado !== 'por_contactar' ? `<span class="punto-estado" style="--estado:${COLOR_ESTADO[c.estado]}"></span> <b>${esc(estadoNombre(c.estado))}</b>${c.peso ? ` · ${num(c.peso)} kg` : ''}` : `Escribe el peso para confirmar el despacho${c.incluido ? '' : ': el cliente pasa automáticamente a la ruta'}.`}</p>
             <div class="ficha-plan-campos">
               <label class="campo-peso">Peso (kg) <input type="number" name="peso" min="0" step="0.1" inputmode="decimal" placeholder="Ej. 850" value="${c.peso != null ? c.peso : ''}"><small>Se suma al peso total de la ruta para elegir el camión</small></label>
+              <label class="campo-estado">Estado <select name="estado">${datos.estados.map(e => `<option value="${e.id}" ${c.estado === e.id ? 'selected' : ''}>${esc(e.nombre)}</option>`).join('')}</select><small>Se ve con su color en el mapa y en el chip</small></label>
               <label class="ancho-total">Observación <input name="observacion" maxlength="500" value="${esc(c.observacion)}" placeholder="Ej. llamar después de las 2 p. m."></label>
             </div>
             <p class="ficha-guardado" aria-live="polite">${c.actualizado_por ? `Actualizado por ${esc(quien(c.actualizado_por))} · ${esc(cuando(c.actualizado))}` : ''}</p>
@@ -537,8 +538,8 @@
         const fila = await pedir(`/rutas/api/${datos.ruta.id}/plan`, { body: { tipo: c.tipo, id: c.id, [campo]: valor } });
         Object.assign(c, { estado: fila.estado, incluido: fila.incluido, peso: fila.peso != null ? Number(fila.peso) : null, observacion: fila.observacion || '', actualizado_por: fila.actualizado_por, actualizado: fila.updated_at });
         refrescar();
-        // Al asignar o quitar el peso cambia el estado del despacho (y puede pasar a la ruta): se vuelve a pintar la ficha
-        if (campo === 'peso' && fichaKey === c.key && dialogo.open && (antes.incluido !== c.incluido || antes.estado !== c.estado)) {
+        // Si cambió el estado (por el selector o porque el peso confirmó el despacho) o el cliente pasó a la ruta, se vuelve a pintar la ficha
+        if (fichaKey === c.key && dialogo.open && (antes.incluido !== c.incluido || antes.estado !== c.estado)) {
           const activo = document.activeElement && document.activeElement.name;
           abrirFicha(c.key);
           const nota = $('.ficha-guardado', contenido);
