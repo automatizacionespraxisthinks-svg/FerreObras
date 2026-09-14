@@ -147,7 +147,7 @@ async function libroObra({ obra, etapas, ventas }, productos) {
     ['Línea WhatsApp', obra.linea], ['Registrada por', obra.creada_por], ['Creada', fechaHora(obra.created_at), { hora: true }],
   ]);
   const der = ficha(ws, f, 5, [
-    ['Obra / municipio', obra.obra], ['Dirección de la obra', obra.direccion_obra], ['Maestro', obra.maestro], ['Celular del maestro', obra.celular_maestro],
+    ['Obra / municipio', obra.obra], ['Dirección de la obra', obra.direccion_obra], ['Residente de obra', obra.maestro], ['Celular del residente', obra.celular_maestro],
     ['Estado', nombreEstado[obra.estado] || obra.estado], ['Cerrada', fechaHora(obra.cerrada_at), { hora: true }],
   ]);
   f = Math.max(izq, der) + 1;
@@ -157,7 +157,7 @@ async function libroObra({ obra, etapas, ventas }, productos) {
     ['Intervalo entre etapas (días)', obra.intervalo_dias], ['Días de aviso', obra.dias_aviso], ['Última actualización', fechaHora(obra.updated_at), { hora: true }],
   ]);
   const b = ficha(ws, f, 5, [
-    ['Etapas (sin cimentación)', reales.length], ['Etapas vendidas', vendidas], ['Etapas sin venta', sinVenta], ['Etapas pendientes', pendientes],
+    ['Etapas (sin la inicial)', reales.length], ['Etapas vendidas', vendidas], ['Etapas sin venta', sinVenta], ['Etapas pendientes', pendientes],
     ['Conversión (vendidas / decididas)', (vendidas + sinVenta) ? vendidas / (vendidas + sinVenta) : 0, { numFmt: '0.0%' }],
     ['Productos vendidos (checks)', checks],
     ['Próxima etapa', proxima ? `${proxima.nombre} · ${fmtFecha(proxima.fecha_programada)} (aviso ${fmtFecha(proxima.fecha_aviso)}${proxima.fecha_aviso ? ', ' + textoDias(calc.diffDays(hoy, proxima.fecha_aviso)) : ''})` : 'Sin etapas pendientes'],
@@ -338,9 +338,9 @@ async function libroAdmin(informe) {
   const colsObras = [
     { titulo: 'ID', clave: 'id', tipo: 'num', ancho: 6 }, { titulo: 'Cliente', clave: 'cliente', tipo: 'texto', ancho: 26 }, { titulo: 'Celular', clave: 'celular', tipo: 'texto', ancho: 13 },
     { titulo: 'Dirección cliente', clave: 'direccion_cliente', tipo: 'texto', ancho: 24 }, { titulo: 'Obra / municipio', clave: 'obra', tipo: 'texto', ancho: 20 }, { titulo: 'Dirección obra', clave: 'direccion_obra', tipo: 'texto', ancho: 24 },
-    { titulo: 'Maestro', clave: 'maestro', tipo: 'texto', ancho: 18 }, { titulo: 'Cel. maestro', clave: 'celular_maestro', tipo: 'texto', ancho: 13 }, { titulo: 'Línea', clave: 'linea', tipo: 'texto', ancho: 8, align: 'center' },
+    { titulo: 'Residente de obra', clave: 'maestro', tipo: 'texto', ancho: 18 }, { titulo: 'Cel. residente', clave: 'celular_maestro', tipo: 'texto', ancho: 13 }, { titulo: 'Línea', clave: 'linea', tipo: 'texto', ancho: 8, align: 'center' },
     { titulo: 'Estado', clave: 'estado_nombre', tipo: 'texto', ancho: 10, align: 'center' }, { titulo: 'Cimentación', clave: 'fecha_cimentacion', tipo: 'fecha', ancho: 12 },
-    { titulo: 'Placas iniciales', clave: 'num_placas', tipo: 'num', ancho: 9 }, { titulo: 'Intervalo (d)', clave: 'intervalo_dias', tipo: 'num', ancho: 9 }, { titulo: 'Días aviso', clave: 'dias_aviso', tipo: 'num', ancho: 9 },
+    { titulo: 'Etapas iniciales', clave: 'num_placas', tipo: 'num', ancho: 9 }, { titulo: 'Intervalo (d)', clave: 'intervalo_dias', tipo: 'num', ancho: 9 }, { titulo: 'Días aviso', clave: 'dias_aviso', tipo: 'num', ancho: 9 },
     { titulo: 'Etapas', clave: 'total_etapas', tipo: 'num', ancho: 8 }, { titulo: 'Hechas', clave: 'hechas', tipo: 'num', ancho: 8 }, { titulo: 'Vendidas', clave: 'vendidas', tipo: 'num', ancho: 9 },
     { titulo: 'Sin venta', clave: 'sin_venta', tipo: 'num', ancho: 9 }, { titulo: 'Pendientes', clave: 'pendientes', tipo: 'num', ancho: 10 }, { titulo: 'Conversión', clave: 'conversion', tipo: 'pct', ancho: 10 },
     { titulo: 'Checks', clave: 'ventas', tipo: 'num', ancho: 8 }, { titulo: 'Próxima etapa', clave: 'proxima', tipo: 'texto', ancho: 16 }, { titulo: 'Fecha próxima', clave: 'proxima_fecha', tipo: 'fecha', ancho: 12 },
@@ -459,8 +459,8 @@ async function libroAgenda(contactos, descripcionFiltro) {
   const colsO = [
     { titulo: 'Cliente', clave: 'nombre', tipo: 'texto', ancho: 30 }, { titulo: 'Obra', clave: 'obra', tipo: 'texto', ancho: 22 },
     { titulo: 'Municipio', clave: 'municipio', tipo: 'texto', ancho: 18 }, { titulo: 'Teléfonos', clave: 'telefonos', tipo: 'texto', ancho: 18 },
-    { titulo: 'Dirección de la obra', clave: 'direccion', tipo: 'texto', ancho: 28, wrap: true }, { titulo: 'Maestro', clave: 'maestro', tipo: 'texto', ancho: 20 },
-    { titulo: 'Celular maestro', clave: 'celular_maestro', tipo: 'texto', ancho: 16 }, { titulo: 'Línea WhatsApp', clave: 'linea', tipo: 'texto', ancho: 14, align: 'center' },
+    { titulo: 'Dirección de la obra', clave: 'direccion', tipo: 'texto', ancho: 28, wrap: true }, { titulo: 'Residente de obra', clave: 'maestro', tipo: 'texto', ancho: 20 },
+    { titulo: 'Celular residente', clave: 'celular_maestro', tipo: 'texto', ancho: 16 }, { titulo: 'Línea WhatsApp', clave: 'linea', tipo: 'texto', ancho: 14, align: 'center' },
     { titulo: 'Rutas', clave: 'rutas_texto', tipo: 'texto', ancho: 20, wrap: true }, { titulo: 'Notas', clave: 'notas', tipo: 'texto', ancho: 30, wrap: true },
   ];
   let ws = hoja(wb, 'Ferreterías', C.azul);

@@ -17,7 +17,7 @@
     <div class="login-lado-int">
       <div class="logo logo-claro"><%- include('logo') %></div>
       <h2>Seguimiento de obras de clientes importantes</h2>
-      <p>Registra cada proyecto, lleva el historial de lo que compró el cliente en cada etapa y recibe el aviso en tu calendario antes de la siguiente placa.</p>
+      <p>Registra cada proyecto, lleva el historial de lo que compró el cliente en cada etapa y recibe el aviso en tu calendario antes de la siguiente etapa.</p>
       <ul class="login-puntos">
         <li>Etapas y avisos calculados automáticamente</li>
         <li>Historial de ventas por línea de producto</li>
@@ -30,7 +30,7 @@
     <h1>Ingresar</h1>
     <p class="sub">Selecciona tu usuario y escribe la clave.</p>
     <% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
-    <label>Usuario
+    <label>Usuario <span class="obligatorio" title="Campo obligatorio">*</span>
       <select name="usuario" required>
         <optgroup label="Líneas de WhatsApp">
           <% lineas.forEach(l => { %><option value="<%= l.numero %>">Línea <%= l.numero %></option><% }) %>
@@ -38,7 +38,7 @@
         <% if (adminUser) { %><optgroup label="Administración"><option value="__admin__">Administrador</option></optgroup><% } %>
       </select>
     </label>
-    <label>Clave
+    <label>Clave <span class="obligatorio" title="Campo obligatorio">*</span>
       <span class="campo-clave">
         <input type="password" name="clave" id="clave" required autofocus autocomplete="current-password">
         <button type="button" class="ver-clave" id="ver-clave" aria-pressed="false" aria-label="Mostrar clave" title="Mostrar clave" aria-controls="clave">

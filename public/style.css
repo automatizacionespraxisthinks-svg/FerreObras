@@ -661,3 +661,15 @@ button.parada-num[data-enfocar]:hover { box-shadow: 0 0 0 3px var(--amarillo); }
 .ver-clave { position: absolute; right: .3rem; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; padding: 0; border: none; border-radius: 50%; background: none; color: var(--tinta-suave); display: inline-flex; align-items: center; justify-content: center; }
 .ver-clave:hover { background: var(--gris-suave); color: var(--azul); }
 .ver-clave[aria-pressed="true"] .icono-mostrar, .ver-clave[aria-pressed="false"] .icono-ocultar { display: none; }
+
+/* ---------- etapas: fecha programada fija y bloque para agregar etapas ---------- */
+.etapa-fechas input.solo-lectura { width: auto; background: var(--gris-suave); border-color: var(--borde); color: var(--tinta-2); cursor: default; font-weight: 600; }
+.etapa-fechas input.solo-lectura:focus { box-shadow: none; border-color: var(--borde); }
+.etapa-fechas label small { font-weight: 400; font-size: .72rem; margin-top: .15rem; }
+.agregar-etapa-texto { display: flex; flex-direction: column; align-self: center; margin-right: .5rem; }
+.agregar-etapa-texto strong { color: var(--azul); }
+.agregar-etapa-texto small { font-size: .78rem; }
+.agregar-etapa:target { box-shadow: 0 0 0 3px var(--amarillo); border-style: solid; }
+
+/* ---------- campos obligatorios ---------- */
+.obligatorio { color: var(--rojo); font-weight: 700; margin-left: .15rem; }

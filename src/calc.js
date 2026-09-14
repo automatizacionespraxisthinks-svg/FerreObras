@@ -19,7 +19,7 @@ function toISOBogota(d) { if (!d) return null; return new Date(d).toLocaleDateSt
 
 /**
  * Recalcula fecha_programada y fecha_aviso de todas las etapas.
- *  - La etapa 0 (cimentación) conserva su fecha y no tiene aviso.
+ *  - La etapa 0 (inicio de la obra) conserva su fecha y no tiene aviso.
  *  - Cada etapa siguiente = (fecha_real o fecha_programada de la anterior) + intervalo_dias,
  *    salvo que la asesora la haya fijado a mano (fecha_fija) o ya tenga fecha_real.
  *  - fecha_aviso = fecha (real o programada) - dias_aviso.
@@ -38,10 +38,10 @@ function recalcular(etapas) {
   return list;
 }
 
-/** Etapas iniciales de una obra nueva: Cimentación + N placas. */
+/** Etapas iniciales de una obra nueva: Inicio + N etapas. */
 function etapasIniciales({ fecha_cimentacion, num_placas, intervalo_dias, dias_aviso }) {
-  const etapas = [{ orden: 0, nombre: 'Cimentación', intervalo_dias: 0, dias_aviso, fecha_programada: toISO(fecha_cimentacion), fecha_fija: true }];
-  for (let i = 1; i <= num_placas; i++) etapas.push({ orden: i, nombre: `Placa ${i}`, intervalo_dias, dias_aviso, fecha_programada: null, fecha_fija: false });
+  const etapas = [{ orden: 0, nombre: 'Inicio', intervalo_dias: 0, dias_aviso, fecha_programada: toISO(fecha_cimentacion), fecha_fija: true }];
+  for (let i = 1; i <= num_placas; i++) etapas.push({ orden: i, nombre: `Etapa ${i}`, intervalo_dias, dias_aviso, fecha_programada: null, fecha_fija: false });
   return recalcular(etapas);
 }
 module.exports = { toISO, toISOBogota, addDays, diffDays, hoyBogota, recalcular, etapasIniciales };

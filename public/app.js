@@ -15,6 +15,24 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && nav.classList.contains('abierto')) btnMenu.click(); });
   }
 
+  // Campos obligatorios: un asterisco al final del texto de la etiqueta de todo campo con `required`.
+  // Cubre los formularios de las páginas y los que se generan por JavaScript (fichas y diálogos), gracias al observador.
+  function marcarObligatorios(raiz) {
+    $$('[required]', raiz).forEach((campo) => {
+      const label = campo.closest('label');
+      if (!label || $('.obligatorio', label)) return;
+      let nodo = campo;
+      while (nodo.parentElement && nodo.parentElement !== label) nodo = nodo.parentElement; // hijo directo del label que contiene el campo
+      const marca = document.createElement('span');
+      marca.className = 'obligatorio'; marca.title = 'Campo obligatorio'; marca.textContent = '*';
+      label.insertBefore(marca, nodo);
+    });
+  }
+  marcarObligatorios(document);
+  new MutationObserver((cambios) => {
+    for (const c of cambios) for (const n of c.addedNodes) if (n.nodeType === 1) marcarObligatorios(n);
+  }).observe(document.body, { childList: true, subtree: true });
+
   // Aviso (toast): se cierra solo y limpia el parámetro msg de la URL
   const toast = $('.toast');
   if (toast) {

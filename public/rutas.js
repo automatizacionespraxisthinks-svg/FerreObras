@@ -499,7 +499,7 @@
             ${dato('Teléfonos', c.telefonos || 'Sin teléfono')}
             ${c.tipo === 'o' ? dato('Obra', c.obra) : ''}
             ${dato('Dirección', c.direccion)}${dato('Sector', c.sector)}
-            ${c.tipo === 'o' ? dato('Dirección del cliente', c.direccion_cliente !== c.direccion ? c.direccion_cliente : '') + dato('Maestro', [c.maestro, c.celular_maestro].filter(Boolean).join(' · ')) + dato('Línea WhatsApp', c.linea) : ''}
+            ${c.tipo === 'o' ? dato('Dirección del cliente', c.direccion_cliente !== c.direccion ? c.direccion_cliente : '') + dato('Residente de obra', [c.maestro, c.celular_maestro].filter(Boolean).join(' · ')) + dato('Línea WhatsApp', c.linea) : ''}
             ${dato('NIT o cédula', c.nit)}${dato('Razón social', c.razon_social)}${dato('Tipología', c.tipologia)}${dato('Volumen de compra', c.volumen_compra)}
             ${dato('Notas', c.notas)}${dato('Ubicación', ubicacion)}
           </dl>

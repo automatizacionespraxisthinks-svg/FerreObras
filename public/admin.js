@@ -126,7 +126,7 @@
   function renderGraficas() {
     const g = informe.graficas, c = g.configurada;
     $('#titulo-configurada').textContent = `${c.metrica.nombre} por ${c.agrupar.nombre}${c.segmentar ? ' · segmentado por ' + c.segmentar.nombre : ''}`;
-    const nota = { obras: 'Obras distintas que tienen al menos una etapa en el grupo.', etapas: 'Número de etapas (incluye la cimentación).', conversion: 'Vendidas / (vendidas + sin venta). Las pendientes no cuentan.', ventas: 'Cada check de producto marcado como vendido cuenta 1.' }[c.metrica.id] || 'Etapas distintas en el grupo.';
+    const nota = { obras: 'Obras distintas que tienen al menos una etapa en el grupo.', etapas: 'Número de etapas (incluye la inicial).', conversion: 'Vendidas / (vendidas + sin venta). Las pendientes no cuentan.', ventas: 'Cada check de producto marcado como vendido cuenta 1.' }[c.metrica.id] || 'Etapas distintas en el grupo.';
     $('#ayuda-configurada').textContent = nota + (['cliente', 'municipio'].includes(c.agrupar.id) ? ` Se muestran los ${informe.filtros.top} con mayor valor.` : '');
     const muchos = c.etiquetas.length > 8 || c.etiquetas.some(e => String(e).length > 14);
     grafica('g-configurada', c, { horizontal: muchos && c.agrupar.id !== 'mes' });
@@ -151,7 +151,7 @@
   // ---------- ayuda de columnas (icono ⓘ en los encabezados) ----------
   // Cada texto explica qué mide la columna y cómo se relaciona con la tabla general de trazabilidad de obras.
   const INFO_COMUN = {
-    etapas: 'Total de etapas dentro de los filtros (cimentación, placas, cubierta…), sin importar su estado. Cada obra aporta sus etapas.',
+    etapas: 'Total de etapas dentro de los filtros (inicial, etapa 1, etapa 2, cubierta…), sin importar su estado. Cada obra aporta sus etapas.',
     vendidas: 'Etapas en las que el cliente compró: se marcaron como vendidas con al menos un producto. Coincide con la columna Vendidas de la trazabilidad de obras.',
     sin_venta: 'Etapas ya decididas en las que no hubo venta: el cliente compró en otro lugar o no necesitó material.',
     pendientes: 'Etapas todavía por decidir: aún no se marcan como vendidas ni sin venta. Son las que generan avisos.',
@@ -163,7 +163,7 @@
       cliente: 'Cliente de la obra y su celular. Al hacer clic en la fila se abre la obra.',
       obra: 'Nombre o municipio de la obra, tal como se registró al crearla.',
       linea: 'Línea de WhatsApp (asesora) que registró la obra y recibe el aviso en su calendario.',
-      etapa: 'Etapa de construcción a la que corresponde el aviso (placa, cubierta, etc.).',
+      etapa: 'Etapa de construcción a la que corresponde el aviso (etapa 1, cubierta, acabados, etc.).',
       fecha: 'Fecha programada de la etapa (o la real, si ya se registró). Es la fecha estimada en que el cliente necesita el material.',
       fecha_aviso: 'Fecha en que se debe contactar al cliente: fecha de la etapa menos los días de aviso configurados. El chip muestra cuántos días faltan o hace cuántos se venció.',
     },

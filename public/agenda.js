@@ -71,7 +71,7 @@
       return `${esc(c.telefonos || '—')}${tels.length ? `<span class="tel-acciones">${tels.map(t => `<a class="btn chico" href="tel:+57${t}" title="Llamar al ${fmtTel(t)}">${ICONO.tel}${fmtTel(t)}</a><a class="btn chico whatsapp" href="https://wa.me/57${t}" target="_blank" rel="noopener" aria-label="WhatsApp ${fmtTel(t)}">${ICONO.whatsapp}</a>`).join('')}</span>` : ''}`;
     } },
     { titulo: 'Dirección', clave: 'direccion', render: (c) => esc(c.direccion || '—') },
-    { titulo: 'NIT o cédula', clave: 'nit', render: (c) => esc(c.tipo === 'o' ? (c.maestro ? `Maestro: ${c.maestro}` : '—') : (c.nit || '—')) },
+    { titulo: 'NIT o cédula', clave: 'nit', render: (c) => esc(c.tipo === 'o' ? (c.maestro ? `Residente: ${c.maestro}` : '—') : (c.nit || '—')) },
     { titulo: 'Tipología', clave: 'tipologia', render: (c) => `${esc(c.tipo === 'o' ? (c.linea ? `Línea ${c.linea}` : '—') : (c.tipologia || '—'))}${c.volumen_compra ? `<small>${esc(c.volumen_compra)}</small>` : ''}` },
     { titulo: 'Rutas', clave: 'rutas_texto', render: (c) => (c.rutas.length ? c.rutas.map(r => `<span class="chip codigo">${esc(r)}</span>`).join(' ') : '<span class="muted">Sin ruta</span>') },
   ];

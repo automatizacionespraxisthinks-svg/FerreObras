@@ -1,6 +1,6 @@
 # FerreObras
 
-Seguimiento de obras de clientes importantes para **FerreAceros**. Las asesoras registran cada proyecto de construcción, llevan el historial de lo que el cliente compró en cada etapa (cimentación, placas, cubierta…) y reciben en Google Calendar un aviso antes de cada etapa con el detalle de la compra anterior, para ofrecer el material a tiempo. El administrador cuenta con un panel de informes con indicadores, gráficas y exportación a Excel para la trazabilidad de todas las obras.
+Seguimiento de obras de clientes importantes para **FerreAceros**. Las asesoras registran cada proyecto de construcción, llevan el historial de lo que el cliente compró en cada etapa (inicio, etapas, cubierta…) y reciben en Google Calendar un aviso antes de cada etapa con el detalle de la compra anterior, para ofrecer el material a tiempo. El administrador cuenta con un panel de informes con indicadores, gráficas y exportación a Excel para la trazabilidad de todas las obras.
 
 Forma parte del ecosistema de atención de FerreAceros (Chatwoot + WAHA + n8n + PostgreSQL) y se despliega en Dokploy junto al resto de servicios. La interfaz sigue la identidad visual de [ferreacerossas.net](https://ferreacerossas.net/) (Poppins, azul `#092F77`, amarillo `#FFE600`).
 
@@ -21,7 +21,7 @@ Administrador ──► /admin  (indicadores, gráficas de barras con filtros, t
 Asesora ──► /rutas  (planificador de despachos: clientes por municipio + mapa del recorrido)
 ```
 
-1. La asesora crea la obra: cliente, obra, maestro, línea de WhatsApp, fecha de cimentación, número de placas, intervalo entre placas, días de aviso y código de precio por línea de producto.
+1. La asesora crea la obra: cliente, obra, residente de obra, línea de WhatsApp, fecha inicial, número de etapas, intervalo entre etapas, días de aviso y código de precio por línea de producto.
 2. La app genera las etapas y calcula, para cada una, la fecha programada y la fecha de aviso.
 3. n8n crea un evento en Calendar por cada aviso. La descripción incluye los datos de la obra, los precios y **qué compró y qué no compró el cliente en la última etapa**.
 4. Cuando la asesora marca una etapa como vendida (o cambia su fecha), las etapas siguientes se recalculan y los eventos se mueven solos.
@@ -32,7 +32,7 @@ Asesora ──► /rutas  (planificador de despachos: clientes por municipio + m
 
 - `fecha(etapa N) = fecha real o programada (etapa N-1) + intervalo de la etapa N`
 - `aviso(etapa N) = fecha(etapa N) − días de aviso de la etapa N`
-- Una fecha real o una fecha fijada a mano corta la cadena: las etapas anteriores no se mueven, las posteriores sí.
+- La fecha programada no se edita a mano: es fija y se calcula desde la etapa anterior. Solo la fecha inicial (etapa 0) se puede cambiar. Cuando una etapa ocurre en otra fecha se registra su **fecha real**, que corta la cadena: las etapas anteriores no se mueven, las posteriores se recalculan.
 - Intervalo y días de aviso son por etapa; los de la obra son solo el valor inicial.
 
 ---
@@ -160,7 +160,7 @@ Importa los dos archivos de `n8n/`, verifica que las credenciales de PostgreSQL 
 4. Deploy.
 
 ### 4. Prueba
-Entra con una línea, crea una obra con 2 placas y verifica que aparezcan dos eventos en el calendario en las fechas de aviso. Marca la Placa 1 como vendida con un par de líneas: el evento de la Placa 2 debe actualizar su descripción. Luego entra como administrador, revisa que el panel muestre la obra y descarga el Excel del informe.
+Entra con una línea, crea una obra con 2 etapas y verifica que aparezcan dos eventos en el calendario en las fechas de aviso. Marca la Etapa 1 como vendida con un par de líneas: el evento de la Etapa 2 debe actualizar su descripción. Luego entra como administrador, revisa que el panel muestre la obra y descarga el Excel del informe.
 
 ---
 
@@ -183,7 +183,7 @@ La app no crea tablas: aplica `schema.sql` antes de arrancar. El panel de admini
 
 ## Decisiones de diseño
 
-- **PostgreSQL en vez de Google Sheets**: el recálculo en cadena al mover una placa se vuelve frágil en hojas de cálculo; en la base es determinista y auditable.
+- **PostgreSQL en vez de Google Sheets**: el recálculo en cadena al mover una etapa se vuelve frágil en hojas de cálculo; en la base es determinista y auditable.
 - **Sin modelo de lenguaje**: la descripción del evento se genera con plantilla a partir de lo que registró la asesora. Es exacta por construcción.
 - **Eventos solo hacia adelante**: una etapa cuyo aviso ya pasó no genera evento retroactivo.
 - **Un usuario por línea de WhatsApp**: permite saber qué línea registró cada obra y define quién queda invitada al evento.

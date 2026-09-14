@@ -165,8 +165,9 @@ app.post('/obras', ruta(async (req, res) => {
     linea: b.linea, fecha_cimentacion: b.fecha_cimentacion, num_placas: Number(b.num_placas), intervalo_dias: Number(b.intervalo_dias),
     dias_aviso: Number(b.dias_aviso), notas: b.notas?.trim() || null,
   };
-  if (!datos.cliente || !datos.celular || !datos.obra || !datos.fecha_cimentacion || !datos.num_placas || !datos.intervalo_dias || !datos.dias_aviso) {
-    return res.render('obra_form', { obra: b, lineas: await lineasWhatsapp(), productos, error: 'Faltan datos obligatorios.' });
+  if (!datos.cliente || !datos.celular || !datos.direccion_cliente || !datos.obra || !datos.direccion_obra || !datos.maestro || !datos.celular_maestro
+      || !datos.fecha_cimentacion || !datos.num_placas || !datos.intervalo_dias || !datos.dias_aviso) {
+    return res.render('obra_form', { obra: b, lineas: await lineasWhatsapp(), productos, error: 'Faltan datos obligatorios: revisa los campos marcados con *.' });
   }
   const obraId = await db.tx(async (client) => {
     const r = await client.query(
@@ -204,6 +205,12 @@ app.post('/obras/:id/editar', ruta(async (req, res) => {
   const productos = await lineasProducto();
   const precios = {};
   for (const p of productos) if (b[`precio_${p.id}`]) precios[p.nombre] = b[`precio_${p.id}`];
+  const falta = ['cliente', 'celular', 'direccion_cliente', 'obra', 'direccion_obra', 'maestro', 'celular_maestro'].some(k => !String(b[k] || '').trim()) || !Number(b.intervalo_dias) || !Number(b.dias_aviso);
+  if (falta) {
+    const data = await cargarObra(id);
+    if (!data) return noEncontrado(res);
+    return res.status(400).render('obra_form', { obra: { ...b, id: data.obra.id, precios }, lineas: await lineasWhatsapp(), productos, error: 'Faltan datos obligatorios: revisa los campos marcados con *.' });
+  }
   await db.query(
     `UPDATE obras SET cliente=$2, celular=$3, direccion_cliente=$4, obra=$5, direccion_obra=$6, maestro=$7, celular_maestro=$8, linea=$9, precios=$10, notas=$11, dias_aviso=$12, intervalo_dias=$13, updated_at=NOW() WHERE id=$1`,
     [id, b.cliente?.trim(), b.celular?.replace(/\D/g, ''), b.direccion_cliente?.trim(), b.obra?.trim(), b.direccion_obra?.trim(), b.maestro?.trim(), b.celular_maestro?.replace(/\D/g, ''),
@@ -227,9 +234,10 @@ app.post('/obras/:id/etapas/:eid', ruta(async (req, res) => {
   etapa.dias_aviso = Number(b.dias_aviso) || etapa.dias_aviso;
   etapa.notas = b.notas?.trim() || null;
   etapa.estado = ['pendiente', 'vendida', 'sin_venta'].includes(b.estado) ? b.estado : etapa.estado;
-  const nuevaProg = b.fecha_programada || null;
-  if (etapa.orden > 0 && nuevaProg && nuevaProg !== etapa.fecha_programada) { etapa.fecha_programada = nuevaProg; etapa.fecha_fija = true; }
-  if (etapa.orden === 0 && nuevaProg) etapa.fecha_programada = nuevaProg;
+  // La fecha programada de las etapas siguientes es fija (se calcula desde la anterior); solo la fecha inicial se puede editar.
+  // Lo que cambia por la realidad se registra en fecha_real y a partir de ahí se recalculan las siguientes.
+  if (etapa.orden === 0 && b.fecha_programada) etapa.fecha_programada = b.fecha_programada;
+  if (etapa.orden > 0) etapa.fecha_fija = false;
   etapa.fecha_real = b.fecha_real || null;
   if (etapa.estado !== 'pendiente' && !etapa.fecha_real) etapa.fecha_real = etapa.fecha_programada;
 
@@ -253,7 +261,7 @@ app.post('/obras/:id/etapas/:eid', ruta(async (req, res) => {
   res.redirect(`/obras/${id}?msg=${encodeURIComponent(msg)}#etapa-${etapa.id}`);
 }));
 
-// agregar etapa al final (cubierta, acabados, otra placa...)
+// agregar etapa al final (cubierta, acabados, otra etapa...)
 app.post('/obras/:id/etapas', ruta(async (req, res) => {
   const { id } = req.params; const b = req.body;
   const data = await cargarObra(id);
@@ -272,7 +280,7 @@ app.post('/obras/:id/etapas', ruta(async (req, res) => {
   res.redirect(`/obras/${id}?msg=${encodeURIComponent('Etapa agregada')}`);
 }));
 
-// eliminar etapa (solo pendientes y no la cimentación)
+// eliminar etapa (solo pendientes y no la inicial)
 app.post('/obras/:id/etapas/:eid/eliminar', ruta(async (req, res) => {
   const { id, eid } = req.params;
   const e = (await db.query('SELECT * FROM etapas WHERE id=$1 AND obra_id=$2', [eid, id])).rows[0];

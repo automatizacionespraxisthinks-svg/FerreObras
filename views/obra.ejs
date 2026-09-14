@@ -17,6 +17,7 @@
   <div class="acciones">
     <a class="btn" href="/obras/<%= obra.id %>/export.xlsx"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 2h8l4 4v12H4V2zm7 1.5V7h3.5L11 3.5zM6 9h2.2l1.3 2 1.3-2H13l-2.3 3.2L13 16h-2.2l-1.3-2.1L8.2 16H6l2.4-3.8L6 9z"/></svg>Exportar Excel</a>
     <a class="btn" href="/obras/<%= obra.id %>/editar">Editar datos</a>
+    <% if (obra.estado === 'activa') { %><a class="btn amarillo" href="#agregar-etapa" id="ir-agregar-etapa"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h2v6h6v2h-6v6H9v-6H3V9h6z"/></svg>Agregar etapa</a><% } %>
     <% if (obra.estado === 'activa') { %>
       <form method="post" action="/obras/<%= obra.id %>/cerrar" data-confirmar="¿Cerrar la obra? Se eliminan los avisos pendientes del calendario y, si el cliente no tiene otra obra activa, pasa a seguimiento de cliente inactivo."><button class="btn peligro">Cerrar obra</button></form>
     <% } else { %>
@@ -31,7 +32,7 @@
     <dl>
       <dt>Celular</dt><dd><a href="tel:<%= obra.celular %>"><%= obra.celular %></a></dd>
       <dt>Dirección del cliente</dt><dd><%= obra.direccion_cliente || '—' %></dd>
-      <dt>Maestro</dt><dd><%= obra.maestro || '—' %><%= obra.celular_maestro ? ' · ' + obra.celular_maestro : '' %></dd>
+      <dt>Residente de obra</dt><dd><%= obra.maestro || '—' %><%= obra.celular_maestro ? ' · ' + obra.celular_maestro : '' %></dd>
       <dt>Programación</dt><dd>cada <%= obra.intervalo_dias %> días, aviso <%= obra.dias_aviso %> días antes</dd>
       <dt>Registrada</dt><dd><%= fmt(toISOBogota(obra.created_at)) %><%= obra.creada_por ? ' · por ' + (obra.creada_por === 'admin' ? 'administrador' : 'línea ' + obra.creada_por) : '' %></dd>
       <% if (obra.notas) { %><dt>Notas</dt><dd><%= obra.notas %></dd><% } %>
@@ -73,7 +74,7 @@
 
 <div class="seccion-cab">
   <h2>Etapas y ventas</h2>
-  <p class="ayuda">Marca lo que compró el cliente en cada etapa y guarda la fila. Si cambias la fecha de una etapa, las siguientes se recalculan solas y el calendario se actualiza.</p>
+  <p class="ayuda">Marca lo que compró el cliente en cada etapa y guarda la fila. La fecha programada se calcula sola; cuando una etapa se haga en otra fecha, escribe la <b>fecha real</b>: las siguientes se recalculan y el calendario se actualiza.</p>
 </div>
 
 <div class="etapas">
@@ -83,8 +84,8 @@
      if (e.estado === 'pendiente' && dias !== null) { if (dias < 0) clase += ' vencido'; else if (dias <= 3) clase += ' pronto'; } %>
   <form method="post" action="/obras/<%= obra.id %>/etapas/<%= e.id %>" class="etapa tarjeta <%= clase %>" id="etapa-<%= e.id %>">
     <div class="etapa-cab">
-      <span class="etapa-num"><%= e.orden === 0 ? 'C' : e.orden %></span>
-      <input name="nombre" value="<%= e.nombre %>" class="nombre-etapa" aria-label="Nombre de la etapa" <%= e.orden === 0 ? 'readonly' : '' %>>
+      <span class="etapa-num"><%= e.orden %></span>
+      <input name="nombre" value="<%= e.nombre %>" class="nombre-etapa" aria-label="Nombre de la etapa">
       <% if (e.orden > 0) { %>
         <span class="mini">Aviso <b><%= fmt(e.fecha_aviso) %></b>
           <% if (e.estado === 'pendiente' && dias !== null) { %><span class="chip <%= claseDias(dias) %>"><%= textoDias(dias) %></span><% } %>
@@ -99,7 +100,11 @@
       </label>
     </div>
     <div class="etapa-fechas">
-      <label>Fecha <%= e.orden === 0 ? 'de cimentación' : 'programada' %> <input type="date" name="fecha_programada" value="<%= e.fecha_programada %>"></label>
+      <% if (e.orden === 0) { %>
+      <label>Fecha inicial <input type="date" name="fecha_programada" value="<%= e.fecha_programada %>"></label>
+      <% } else { %>
+      <label>Fecha programada <input type="text" value="<%= fmt(e.fecha_programada) %>" readonly tabindex="-1" class="solo-lectura" title="Se calcula sola: fecha de la etapa anterior + intervalo. Si la etapa se hizo en otra fecha, escríbela en Fecha real."><small>Calculada · si cambió, usa la fecha real</small></label>
+      <% } %>
       <% if (e.orden > 0) { %>
       <label>Fecha real <input type="date" name="fecha_real" value="<%= e.fecha_real || '' %>"></label>
       <label>Intervalo <span class="con-sufijo"><input type="number" name="intervalo_dias" min="1" value="<%= e.intervalo_dias %>" class="corto"><em>días después</em></span></label>
@@ -125,9 +130,9 @@
 <% }) %>
 </div>
 
-<form method="post" action="/obras/<%= obra.id %>/etapas" class="agregar-etapa tarjeta">
-  <strong>Agregar etapa al final</strong>
-  <label>Nombre <input name="nombre" placeholder="Cubierta, Acabados, Placa 5…" required></label>
+<form method="post" action="/obras/<%= obra.id %>/etapas" class="agregar-etapa tarjeta" id="agregar-etapa">
+  <div class="agregar-etapa-texto"><strong>Agregar una etapa</strong><small>Queda después de la última: fecha = anterior + intervalo · aviso = fecha − días de aviso</small></div>
+  <label>Nombre <input name="nombre" placeholder="Cubierta, Acabados, Etapa 5…" required></label>
   <label>Intervalo <span class="con-sufijo"><input type="number" name="intervalo_dias" min="1" value="<%= obra.intervalo_dias %>" class="corto"><em>días después de la anterior</em></span></label>
   <label>Aviso <span class="con-sufijo"><input type="number" name="dias_aviso" min="1" value="<%= obra.dias_aviso %>" class="corto"><em>días antes</em></span></label>
   <button type="submit" class="btn chico">Agregar</button>
