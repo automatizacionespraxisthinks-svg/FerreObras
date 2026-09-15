@@ -77,23 +77,72 @@
   }
 
   // ---------- Editar, Cancelar, Guardar ----------
+  // Bloques repetibles (obras): numeración y botón Quitar deshabilitado cuando se llega al mínimo
+  function renumerar(grupo) {
+    const items = grupo.querySelectorAll('[data-items] > [data-item]');
+    const min = Number(grupo.dataset.minimo || 0), max = Number(grupo.dataset.maximo || 30);
+    items.forEach((it, i) => {
+      $('[data-numero]', it).textContent = `${grupo.dataset.etiqueta} ${i + 1}`;
+      $('[data-hv=quitar-item]', it).hidden = items.length <= min;
+    });
+    $('[data-hv=agregar-item]', grupo).hidden = items.length >= max;
+  }
+  function agregarItem(grupo) {
+    const lista = $('[data-items]', grupo), plantilla = $('template[data-plantilla]', grupo);
+    lista.appendChild(plantilla.content.cloneNode(true));
+    renumerar(grupo);
+    const nuevo = lista.lastElementChild;
+    nuevo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const primero = $('input, select, textarea', nuevo);
+    if (primero) primero.focus();
+  }
+  const itemVacio = (it) => Array.from(it.querySelectorAll('[data-campo]')).every(el => !String(el.value).trim());
+
   contenido.addEventListener('click', (e) => {
     const b = e.target.closest('[data-hv]');
     if (!b) return;
     if (b.dataset.hv === 'editar') cargar({ editar: '1' });
     if (b.dataset.hv === 'cancelar') cargar();
+    if (b.dataset.hv === 'agregar-item') agregarItem(b.closest('[data-repetible]'));
+    if (b.dataset.hv === 'quitar-item') {
+      const it = b.closest('[data-item]'), grupo = b.closest('[data-repetible]');
+      if (!itemVacio(it) && !confirm(`¿Quitar esta ${grupo.dataset.etiqueta.toLowerCase()}? Se borra al guardar.`)) return;
+      it.remove(); renumerar(grupo);
+    }
   });
+  // Al cargar un formulario (página completa o fragmento) se ajustan numeración y botones
+  const prepararFormulario = () => document.querySelectorAll('#hv-form [data-repetible]').forEach(renumerar);
+  prepararFormulario();
+  new MutationObserver(prepararFormulario).observe(contenido, { childList: true });
   contenido.addEventListener('submit', async (e) => {
     if (e.target.id !== 'hv-form') return;
     e.preventDefault();
     const form = e.target, error = $('.error', form), boton = $('button[type=submit]', form);
-    const faltante = Array.from(form.elements).find(el => el.required && !el.readOnly && !String(el.value).trim());
+    // Campos obligatorios: los bloques repetibles totalmente vacíos no se revisan (el servidor los ignora),
+    // salvo que no haya ningún bloque con datos y la sección exija un mínimo.
+    const grupos = Array.from(form.querySelectorAll('[data-repetible]'));
+    const revisar = Array.from(form.elements).filter(el => {
+      if (!el.required || el.readOnly) return false;
+      const it = el.closest('[data-item]');
+      if (!it) return true;
+      const grupo = it.closest('[data-repetible]'), items = Array.from(grupo.querySelectorAll('[data-items] > [data-item]'));
+      const conDatos = items.filter(x => !itemVacio(x));
+      return !itemVacio(it) || (!conDatos.length && Number(grupo.dataset.minimo || 0) > 0 && it === items[0]);
+    });
+    const faltante = revisar.find(el => !String(el.value).trim());
     if (faltante) {
       error.textContent = 'Completa los campos marcados con *.'; error.hidden = false; faltante.focus();
       return;
     }
     const body = {};
     for (const el of form.elements) if (el.name) body[el.name] = el.value;
+    for (const grupo of grupos) {
+      body[grupo.dataset.repetible] = Array.from(grupo.querySelectorAll('[data-items] > [data-item]')).filter(it => !itemVacio(it)).map(it => {
+        const item = { id: it.dataset.id || '' };
+        it.querySelectorAll('[data-campo]').forEach(el => { item[el.dataset.campo] = el.value; });
+        return item;
+      });
+    }
     boton.disabled = true; error.hidden = true;
     try {
       const existia = $('.hv-hoja', contenido).dataset.existe === '1';

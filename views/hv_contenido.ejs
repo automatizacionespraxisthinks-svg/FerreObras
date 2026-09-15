@@ -1,36 +1,96 @@
-<%# Contenido de la hoja de vida: ficha de lectura o formulario. Se usa en la página completa y como fragmento. %>
+<%# Contenido de la hoja de vida: ficha de lectura o formulario. Se usa en la página completa y como fragmento.
+    Todo sale de CAMPOS (src/hoja_vida.js): secciones normales y secciones repetibles (obras). %>
 <%
   const d = (hoja && hoja.datos) || {};
+  const ctx = contexto || {};
   const fmtCel = (c) => String(c || '').replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3');
   const fechaHora = (v) => v ? new Date(v).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
   const nombreQuien = (u) => !u ? '' : u === '__admin__' || u === 'admin' ? 'administrador' : /^\d{3,6}$/.test(u) ? 'línea ' + u : u;
-  const ctx = contexto || {};
+  const seccionesRepetibles = campos.filter(s => s.repetible);
+  const nombreCliente = d.nombre || ctx.nombre || '';
+  const valorLectura = (c, v) => c.tipo === 'celular' ? fmtCel(v) : v;
+  const obligatorio = '<span class="obligatorio" title="Campo obligatorio">*</span>';
 %>
+<% // Un campo del formulario. nombre = atributo name (vacío en bloques repetibles, que usan data-campo)
+   function campoFormulario(c, valor, opciones) {
+     const o = opciones || {};
+     const fijo = o.fijo;
+     const attrNombre = o.repetible ? `data-campo="${c.id}"` : `name="${c.id}"`;
+     const req = c.requerido ? 'required' : ''; %>
+  <label class="<%= c.tipo === 'area' ? 'hv-ancho' : '' %>"><%= c.etiqueta %><% if (c.requerido || c.identidad) { %> <%- obligatorio %><% } %>
+    <% if (c.tipo === 'lista') { %>
+      <select <%- attrNombre %> <%= req %>>
+        <option value="">Selecciona…</option>
+        <% c.opciones.forEach(op => { %><option value="<%= op %>" <%= valor === op ? 'selected' : '' %>><%= op %></option><% }) %>
+      </select>
+    <% } else if (c.tipo === 'area') { %>
+      <textarea <%- attrNombre %> rows="3" maxlength="<%= c.max || 2000 %>" <%= req %>><%= valor %></textarea>
+    <% } else { %>
+      <input <%- fijo ? '' : attrNombre %> value="<%= c.tipo === 'celular' && fijo ? fmtCel(valor) : valor %>"
+        <%= c.tipo === 'celular' ? 'inputmode=tel' : '' %> maxlength="<%= c.tipo === 'celular' ? 20 : (c.max || 160) %>"
+        <%- c.placeholder ? `placeholder="${c.placeholder}"` : (c.tipo === 'celular' && !fijo ? 'placeholder="3001234567"' : '') %>
+        <%- c.sugerencias === 'municipios' ? 'list="hv-municipios" autocomplete="off"' : '' %>
+        <%= req %> <%- fijo ? 'readonly class="hv-solo-lectura" aria-readonly="true" tabindex="-1"' : '' %>>
+    <% } %>
+    <% if (fijo && c.ayudaChatwoot && o.chatwoot) { %><small><%= c.ayudaChatwoot %></small><% } %>
+  </label>
+<% } %>
+<% // Tarjeta de un bloque repetible (obra) en el formulario
+   function tarjetaFormulario(s, item, indice) { %>
+  <div class="hv-item" data-item data-id="<%= item.id || '' %>">
+    <div class="hv-item-cab">
+      <h3><span data-numero><%= s.etiquetaItem %> <%= indice + 1 %></span></h3>
+      <button type="button" class="btn chico link hv-quitar" data-hv="quitar-item" aria-label="Quitar esta <%= s.etiquetaItem.toLowerCase() %>">Quitar</button>
+    </div>
+    <div class="hv-item-campos">
+      <% s.campos.forEach(c => { campoFormulario(c, item[c.id] || '', { repetible: true }); }) %>
+    </div>
+  </div>
+<% } %>
+
 <div class="hv-hoja" data-vista="<%= modo %>" data-existe="<%= hoja ? '1' : '0' %>" data-celular="<%= celular %>">
 <% if (modo === 'ficha') { %>
   <header class="hv-cab">
     <div class="hv-cab-texto">
       <p class="hv-sobre">Hoja de vida</p>
-      <h1><%= d.nombre || ctx.nombre || 'Cliente' %></h1>
-      <p class="hv-cel"><%= fmtCel(celular) %><% if (d.tipo_cliente) { %> · <span class="hv-tipo"><%= d.tipo_cliente %></span><% } %></p>
+      <h1><%= nombreCliente || 'Cliente' %></h1>
+      <p class="hv-cel"><%= fmtCel(celular) %><% seccionesRepetibles.forEach(s => { const n = (d[s.id] || []).length; %> · <%= n %> <%= n === 1 ? s.etiquetaItem.toLowerCase() : s.seccion.toLowerCase() %><% }) %></p>
     </div>
     <button type="button" class="btn chico primario" data-hv="editar">Editar</button>
   </header>
-  <% campos.forEach(s => { const conValor = s.campos.filter(c => d[c.id]); %>
-    <section class="hv-seccion">
-      <h2><%= s.seccion %></h2>
-      <% if (!conValor.length) { %>
-        <p class="hv-vacio">Sin información registrada.</p>
-      <% } else { %>
+
+  <% campos.forEach(s => { %>
+    <% if (!s.repetible) {
+         const visibles = s.campos.filter(c => c.identidad ? celular : d[c.id]); %>
+      <section class="hv-seccion">
+        <h2><%= s.seccion %></h2>
+        <% if (!visibles.length) { %><p class="hv-vacio">Sin información registrada.</p><% } else { %>
         <dl class="hv-datos">
-          <% s.campos.forEach(c => { if (!d[c.id]) return; %>
-            <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><%= d[c.id] %></dd></div>
+          <% visibles.forEach(c => { const v = c.identidad ? celular : d[c.id]; %>
+            <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><%= valorLectura(c, v) %></dd></div>
           <% }) %>
         </dl>
-      <% } %>
-    </section>
+        <% } %>
+      </section>
+    <% } else { const items = d[s.id] || []; %>
+      <section class="hv-seccion">
+        <h2><%= s.seccion %> <span class="hv-conteo"><%= items.length %></span></h2>
+        <% if (!items.length) { %><p class="hv-vacio">Sin <%= s.seccion.toLowerCase() %> registradas.</p><% } %>
+        <% items.forEach((it, i) => { %>
+          <article class="hv-item lectura">
+            <h3><%= s.etiquetaItem %> <%= i + 1 %><% if (it.municipio) { %> <span class="hv-item-sub">· <%= it.municipio %></span><% } %></h3>
+            <dl class="hv-datos">
+              <% s.campos.forEach(c => { if (!it[c.id]) return; %>
+                <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><% if (c.tipo === 'celular') { %><a href="tel:+57<%= it[c.id] %>"><%= fmtCel(it[c.id]) %></a><% } else { %><%= it[c.id] %><% } %></dd></div>
+              <% }) %>
+            </dl>
+          </article>
+        <% }) %>
+      </section>
+    <% } %>
   <% }) %>
   <p class="hv-traza">Actualizada el <b><%= fechaHora(hoja.updated_at) %></b><% if (hoja.actualizado_por) { %> por <b><%= nombreQuien(hoja.actualizado_por) %></b><% } %></p>
+
 <% } else { %>
   <header class="hv-cab">
     <div class="hv-cab-texto">
@@ -39,31 +99,27 @@
     </div>
   </header>
   <form class="hv-form" id="hv-form" novalidate>
-    <label>Celular <span class="obligatorio" title="Campo obligatorio">*</span>
-      <input value="<%= fmtCel(celular) %>" readonly class="hv-solo-lectura" aria-readonly="true">
-    </label>
     <% campos.forEach(s => { %>
-      <fieldset class="hv-seccion">
-        <legend><%= s.seccion %></legend>
-        <% s.campos.forEach(c => {
-             const fijo = c.desdeChatwoot && ctx[c.desdeChatwoot];
-             const valor = fijo ? ctx[c.desdeChatwoot] : (d[c.id] || '');
-             const req = c.requerido ? 'required' : ''; %>
-          <label><%= c.etiqueta %><% if (c.requerido) { %> <span class="obligatorio" title="Campo obligatorio">*</span><% } %>
-            <% if (c.tipo === 'lista') { %>
-              <select name="<%= c.id %>" <%= req %>>
-                <option value="">Selecciona…</option>
-                <% c.opciones.forEach(o => { %><option value="<%= o %>" <%= valor === o ? 'selected' : '' %>><%= o %></option><% }) %>
-              </select>
-            <% } else if (c.tipo === 'area') { %>
-              <textarea name="<%= c.id %>" rows="4" maxlength="<%= c.max || 2000 %>" <%= req %>><%= valor %></textarea>
-            <% } else { %>
-              <input name="<%= c.id %>" value="<%= valor %>" maxlength="<%= c.max || 160 %>" <%= req %> <%= c.sugerencias === 'municipios' ? 'list=hv-municipios autocomplete=off' : '' %> <%= fijo ? 'readonly class=hv-solo-lectura aria-readonly=true' : '' %>>
-              <% if (fijo) { %><small>Se toma del contacto en Chatwoot</small><% } %>
-            <% } %>
-          </label>
-        <% }) %>
-      </fieldset>
+      <% if (!s.repetible) { %>
+        <fieldset class="hv-seccion">
+          <legend><%= s.seccion %></legend>
+          <% s.campos.forEach(c => {
+               if (c.identidad) return campoFormulario(c, celular, { fijo: true, chatwoot: !!ctx.nombre || !!ctx.contactId });
+               const desdeCtx = c.desdeChatwoot && ctx[c.desdeChatwoot];
+               campoFormulario(c, desdeCtx ? ctx[c.desdeChatwoot] : (d[c.id] || ''), { fijo: !!desdeCtx, chatwoot: !!desdeCtx });
+             }) %>
+        </fieldset>
+      <% } else {
+           const items = (d[s.id] && d[s.id].length) ? d[s.id] : Array.from({ length: s.minimo || 1 }, () => ({})); %>
+        <fieldset class="hv-seccion hv-repetible" data-repetible="<%= s.id %>" data-minimo="<%= s.minimo || 0 %>" data-maximo="<%= s.maximo || 30 %>" data-etiqueta="<%= s.etiquetaItem %>">
+          <legend><%= s.seccion %> <% if (s.minimo) { %><%- obligatorio %><% } %></legend>
+          <div class="hv-items" data-items>
+            <% items.forEach((it, i) => tarjetaFormulario(s, it, i)) %>
+          </div>
+          <template data-plantilla><% tarjetaFormulario(s, {}, 0) %></template>
+          <button type="button" class="btn hv-agregar" data-hv="agregar-item">+ Agregar <%= s.etiquetaItem.toLowerCase() %></button>
+        </fieldset>
+      <% } %>
     <% }) %>
     <p class="error" role="alert" hidden></p>
     <div class="hv-acciones">

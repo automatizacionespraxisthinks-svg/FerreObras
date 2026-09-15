@@ -11,25 +11,42 @@ const express = require('express');
 const db = require('./db');
 const mun = require('./municipios');
 
-// ---------- campos de la hoja (la HU de campos solo edita esta lista) ----------
-// tipo: 'texto' | 'lista' | 'area'. desdeChatwoot: se toma del contacto de Chatwoot y se muestra como solo lectura.
+// ---------- campos de la hoja (para cambiar el formulario solo se edita esta lista) ----------
+// Sección normal: sus campos se guardan en datos.<id del campo>.
+// Sección repetible (repetible: true): lista de 1 a N bloques guardada en datos.<id de la sección> = [{ id, ...campos }].
+// Campo:
+//   tipo: 'texto' | 'celular' | 'lista' | 'area'
+//   identidad: es el celular que identifica la hoja; se muestra fijo y no se guarda en datos (va en la columna celular)
+//   desdeChatwoot: se toma del contacto de Chatwoot y se muestra como solo lectura cuando hay contexto
+//   sugerencias: 'municipios' muestra el catálogo de municipios mientras se escribe
 const CAMPOS = [
   {
-    seccion: 'Datos del cliente',
+    id: 'cliente',
+    seccion: 'Datos del cliente o empresa',
     campos: [
-      { id: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 160, desdeChatwoot: 'nombre' },
-      { id: 'tipo_cliente', etiqueta: 'Tipo de cliente', tipo: 'lista', requerido: true, opciones: ['Cliente', 'Ingeniero', 'Arquitecto', 'Ferretería', 'Maestro'] },
-      { id: 'municipio', etiqueta: 'Municipio', tipo: 'texto', max: 160, sugerencias: 'municipios' },
+      { id: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 160, desdeChatwoot: 'nombre', ayudaChatwoot: 'Tal como está guardado en Chatwoot' },
+      { id: 'celular', etiqueta: 'Celular', tipo: 'celular', identidad: true, ayudaChatwoot: 'Tomado del contacto en Chatwoot' },
+      { id: 'direccion', etiqueta: 'Dirección', tipo: 'texto', requerido: true, max: 300 },
+      { id: 'notas', etiqueta: 'Notas', tipo: 'area', max: 2000 },
     ],
   },
   {
-    seccion: 'Observaciones',
+    id: 'obras',
+    seccion: 'Obras',
+    repetible: true,
+    etiquetaItem: 'Obra',
+    minimo: 1,
+    maximo: 30,
     campos: [
-      { id: 'observaciones', etiqueta: 'Observaciones', tipo: 'area', max: 2000 },
+      { id: 'residente', etiqueta: 'Nombre del residente de obra', tipo: 'texto', requerido: true, max: 160 },
+      { id: 'nit', etiqueta: 'NIT / Cédula para facturación', tipo: 'texto', max: 30, placeholder: '900123456-7' },
+      { id: 'celular', etiqueta: 'Celular', tipo: 'celular', requerido: true },
+      { id: 'direccion', etiqueta: 'Dirección de la obra', tipo: 'texto', requerido: true, max: 300 },
+      { id: 'municipio', etiqueta: 'Municipio', tipo: 'texto', requerido: true, max: 160, sugerencias: 'municipios' },
+      { id: 'notas', etiqueta: 'Notas', tipo: 'area', max: 2000 },
     ],
   },
 ];
-const LISTA_CAMPOS = CAMPOS.flatMap(s => s.campos);
 
 // ---------- configuración ----------
 const leer = (n) => String(process.env[n] || '').replace(/\r|\n/g, '').trim().replace(/^(["'])(.*)\1$/, '$2');
@@ -42,6 +59,9 @@ const SECRETO_HV = leer('CHATWOOT_HV_SECRET');
 const SECRETO_COOKIE = process.env.SESSION_SECRET || 'cambiar';
 const COOKIE = 'ferreobras_hv';
 const DURACION_MS = 12 * 60 * 60 * 1000;
+// Versión de los archivos estáticos de la vista: cambia en cada arranque (despliegue) para que el navegador
+// no use un hv.js o hv.css viejo guardado en caché junto a una plantilla nueva.
+const VERSION_ESTATICOS = Date.now().toString(36);
 if (!SECRETO_HV) console.warn(`[hv] CHATWOOT_HV_SECRET no está definida: ${PRODUCCION ? 'el acceso desde Chatwoot queda deshabilitado' : 'en desarrollo se acepta el contexto sin clave'}`);
 
 // ---------- esquema (idempotente; se ejecuta al arrancar) ----------
@@ -108,17 +128,52 @@ function authHv(req, res, next) {
 async function obtener(celular) {
   return (await db.query('SELECT * FROM hojas_vida WHERE celular = $1', [celular])).rows[0] || null;
 }
+// Limpia y valida un valor según su campo. Devuelve { valor } o { error }.
+function validarCampo(c, bruto, prefijo = '') {
+  let v = String(bruto == null ? '' : bruto).replace(/\r/g, '');
+  v = c.tipo === 'area' ? v.trim() : v.replace(/\s+/g, ' ').trim();
+  if (c.max) v = v.slice(0, c.max);
+  if (c.requerido && !v) return { error: `${prefijo}el campo "${c.etiqueta}" es obligatorio.` };
+  if (c.tipo === 'lista' && v && !c.opciones.includes(v)) return { error: `${prefijo}el valor de "${c.etiqueta}" no es válido.` };
+  if (c.tipo === 'celular' && v) {
+    const cel = normalizarCelular(v);
+    if (!cel) return { error: `${prefijo}"${c.etiqueta}" debe ser un celular de 10 dígitos.` };
+    v = cel;
+  }
+  return { valor: v };
+}
+const mayuscula = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const idItem = (v) => (/^[a-z0-9-]{8,40}$/i.test(String(v || '')) ? String(v) : crypto.randomUUID());
+
 // Valida el cuerpo contra CAMPOS. Devuelve { datos } o { error }.
 function validar(body, contexto = {}) {
   const datos = {};
-  for (const c of LISTA_CAMPOS) {
-    let v = c.desdeChatwoot && contexto[c.desdeChatwoot] ? contexto[c.desdeChatwoot] : body[c.id];
-    v = String(v == null ? '' : v).replace(/\r/g, '');
-    v = c.tipo === 'area' ? v.trim() : v.replace(/\s+/g, ' ').trim();
-    if (c.max) v = v.slice(0, c.max);
-    if (c.tipo === 'lista' && v && !c.opciones.includes(v)) return { error: `El valor de "${c.etiqueta}" no es válido.` };
-    if (c.requerido && !v) return { error: `El campo "${c.etiqueta}" es obligatorio.` };
-    datos[c.id] = v;
+  for (const s of CAMPOS) {
+    if (!s.repetible) {
+      for (const c of s.campos) {
+        if (c.identidad) continue; // el celular de la hoja va en su columna
+        const bruto = c.desdeChatwoot && contexto[c.desdeChatwoot] ? contexto[c.desdeChatwoot] : body[c.id];
+        const r = validarCampo(c, bruto);
+        if (r.error) return { error: mayuscula(r.error) };
+        datos[c.id] = r.valor;
+      }
+      continue;
+    }
+    // Bloques repetibles: se ignoran los que llegan completamente vacíos
+    const items = (Array.isArray(body[s.id]) ? body[s.id] : []).filter(it => it && typeof it === 'object'
+      && s.campos.some(c => String(it[c.id] == null ? '' : it[c.id]).trim()));
+    if (items.length < (s.minimo || 0)) return { error: `Agrega al menos ${s.minimo === 1 ? 'una' : s.minimo} ${s.etiquetaItem.toLowerCase()}.` };
+    if (s.maximo && items.length > s.maximo) return { error: `Se permiten máximo ${s.maximo} ${s.seccion.toLowerCase()}.` };
+    datos[s.id] = [];
+    for (const [i, it] of items.entries()) {
+      const item = { id: idItem(it.id) };
+      for (const c of s.campos) {
+        const r = validarCampo(c, it[c.id], `${s.etiquetaItem} ${i + 1}: `);
+        if (r.error) return { error: r.error };
+        item[c.id] = r.valor;
+      }
+      datos[s.id].push(item);
+    }
   }
   return { datos };
 }
@@ -153,6 +208,7 @@ router.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
   res.locals.chatwootOrigin = CHATWOOT_ORIGIN;
+  res.locals.versionEstaticos = VERSION_ESTATICOS;
   next();
 });
 // Las peticiones que modifican datos solo se aceptan desde el propio JavaScript de la vista (cabecera propia + JSON):

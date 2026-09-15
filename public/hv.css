@@ -52,3 +52,19 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 /* aviso flotante */
 .hv-toast { position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); z-index: 20; background: var(--azul); color: #fff; padding: .6rem 1rem; border-radius: var(--radio); border-left: 4px solid var(--amarillo); box-shadow: var(--sombra-2); font-size: .88rem; max-width: calc(100vw - 2rem); }
 .hv-toast.error { background: var(--rojo); border-left-color: #fff; }
+
+/* ---------- bloques repetibles (obras) ---------- */
+.hv-seccion h2 .hv-conteo { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; margin-left: .25rem; border-radius: 999px; background: var(--amarillo); color: var(--azul); text-align: center; letter-spacing: 0; }
+.hv-item { border: 1px solid var(--borde); border-left: 4px solid var(--azul); border-radius: var(--radio-chico); padding: .6rem .7rem .7rem; margin: 0 0 .65rem; background: #fff; }
+.hv-item h3 { margin: 0 0 .45rem; font-size: .88rem; font-weight: 700; color: var(--azul); }
+.hv-item-sub { font-weight: 500; color: var(--tinta-2); }
+.hv-item.lectura .hv-dato { background: var(--fondo); }
+.hv-item.lectura a { color: var(--azul); font-weight: 600; }
+.hv-item-cab { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.hv-item-cab h3 { margin: 0; }
+.hv .btn.link.hv-quitar { border: none; background: none; color: var(--rojo); padding: .2rem .4rem; box-shadow: none; }
+.hv .btn.link.hv-quitar:hover { text-decoration: underline; background: none; }
+.hv-item-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 0 .75rem; }
+.hv-item-campos .hv-ancho, .hv-form .hv-ancho { grid-column: 1 / -1; }
+.hv-agregar { width: 100%; justify-content: center; border-style: dashed; }
+.hv-repetible legend .obligatorio { letter-spacing: 0; }

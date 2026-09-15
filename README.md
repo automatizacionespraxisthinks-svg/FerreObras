@@ -87,7 +87,10 @@ Vista pensada para abrirse como pestaña dentro de la conversación de Chatwoot 
 - **Una hoja por cliente**, identificada por el celular de 10 dígitos (sin +57). El celular sale de `phone_number` del contacto o, si no hay, de `custom_attributes.waha_whatsapp_jid`.
 - **Sin hoja**: formulario "Nueva hoja de vida" con el celular fijo. **Con hoja**: ficha de lectura por secciones con la fecha de la última actualización, quién la hizo y el botón **Editar**. Ficha y formulario se intercambian sin recargar la página.
 - **Layout propio** (`views/layout_hv.ejs`): sin cabecera, menú ni botón Salir, en una columna para un panel de 400 a 600 px.
-- **Campos**: se definen en un solo lugar, la constante `CAMPOS` de `src/hoja_vida.js`; la plantilla y la validación del servidor se ajustan solas. Por ahora son campos de prueba: nombre, tipo de cliente, municipio y observaciones. Se guardan en la columna `datos` (`jsonb`), así que cambiar la lista no requiere migración, y al editar se conservan los datos de campos que ya no estén en la lista.
+- **Campos**: se definen en un solo lugar, la constante `CAMPOS` de `src/hoja_vida.js`; la plantilla y la validación del servidor se ajustan solas. Se guardan en la columna `datos` (`jsonb`), así que cambiar la lista no requiere migración.
+  - **Datos del cliente o empresa**: nombre (tal como está en Chatwoot, de solo lectura), celular (del contacto, identifica la hoja), dirección y notas.
+  - **Obras** (una o varias, botón *Agregar obra*): nombre del residente de obra, NIT o cédula para facturación, celular, dirección de la obra, municipio y notas. Cada obra guarda un identificador propio que se conserva al editar. Las obras que se dejan totalmente vacías no se guardan.
+  - Obligatorios (con `*`): nombre, dirección y al menos una obra con residente, celular de 10 dígitos, dirección y municipio. El NIT y las notas son opcionales.
 - **Trazabilidad**: cada creación o edición guarda `actualizado_por` (correo del agente de Chatwoot o usuario de la aplicación) y `updated_at`.
 
 ### Rutas

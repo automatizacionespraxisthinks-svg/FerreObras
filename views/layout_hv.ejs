@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/static/style.css">
-<link rel="stylesheet" href="/static/hv.css">
+<link rel="stylesheet" href="/static/style.css?v=<%= locals.versionEstaticos || '' %>">
+<link rel="stylesheet" href="/static/hv.css?v=<%= locals.versionEstaticos || '' %>">
 </head>
 <body class="hv">
 <%# Layout de la hoja de vida: sin cabecera, sin menú y sin botón Salir (se abre dentro de Chatwoot) %>
@@ -31,6 +31,6 @@
 </main>
 <div class="hv-toast" id="hv-toast" role="status" hidden></div>
 <datalist id="hv-municipios"><% (locals.municipios || []).forEach(m => { %><option value="<%= m.nombre %>"></option><% }) %></datalist>
-<script src="/static/hv.js" defer></script>
+<script src="/static/hv.js?v=<%= locals.versionEstaticos || '' %>" defer></script>
 </body>
 </html>
