@@ -1,0 +1,75 @@
+<%# Contenido de la hoja de vida: ficha de lectura o formulario. Se usa en la página completa y como fragmento. %>
+<%
+  const d = (hoja && hoja.datos) || {};
+  const fmtCel = (c) => String(c || '').replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3');
+  const fechaHora = (v) => v ? new Date(v).toLocaleString('es-CO', { timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const nombreQuien = (u) => !u ? '' : u === '__admin__' || u === 'admin' ? 'administrador' : /^\d{3,6}$/.test(u) ? 'línea ' + u : u;
+  const ctx = contexto || {};
+%>
+<div class="hv-hoja" data-vista="<%= modo %>" data-existe="<%= hoja ? '1' : '0' %>" data-celular="<%= celular %>">
+<% if (modo === 'ficha') { %>
+  <header class="hv-cab">
+    <div class="hv-cab-texto">
+      <p class="hv-sobre">Hoja de vida</p>
+      <h1><%= d.nombre || ctx.nombre || 'Cliente' %></h1>
+      <p class="hv-cel"><%= fmtCel(celular) %><% if (d.tipo_cliente) { %> · <span class="hv-tipo"><%= d.tipo_cliente %></span><% } %></p>
+    </div>
+    <button type="button" class="btn chico primario" data-hv="editar">Editar</button>
+  </header>
+  <% campos.forEach(s => { const conValor = s.campos.filter(c => d[c.id]); %>
+    <section class="hv-seccion">
+      <h2><%= s.seccion %></h2>
+      <% if (!conValor.length) { %>
+        <p class="hv-vacio">Sin información registrada.</p>
+      <% } else { %>
+        <dl class="hv-datos">
+          <% s.campos.forEach(c => { if (!d[c.id]) return; %>
+            <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><%= d[c.id] %></dd></div>
+          <% }) %>
+        </dl>
+      <% } %>
+    </section>
+  <% }) %>
+  <p class="hv-traza">Actualizada el <b><%= fechaHora(hoja.updated_at) %></b><% if (hoja.actualizado_por) { %> por <b><%= nombreQuien(hoja.actualizado_por) %></b><% } %></p>
+<% } else { %>
+  <header class="hv-cab">
+    <div class="hv-cab-texto">
+      <p class="hv-sobre"><%= hoja ? 'Editar' : 'Registro' %></p>
+      <h1><%= hoja ? 'Editar hoja de vida' : 'Nueva hoja de vida' %></h1>
+    </div>
+  </header>
+  <form class="hv-form" id="hv-form" novalidate>
+    <label>Celular <span class="obligatorio" title="Campo obligatorio">*</span>
+      <input value="<%= fmtCel(celular) %>" readonly class="hv-solo-lectura" aria-readonly="true">
+    </label>
+    <% campos.forEach(s => { %>
+      <fieldset class="hv-seccion">
+        <legend><%= s.seccion %></legend>
+        <% s.campos.forEach(c => {
+             const fijo = c.desdeChatwoot && ctx[c.desdeChatwoot];
+             const valor = fijo ? ctx[c.desdeChatwoot] : (d[c.id] || '');
+             const req = c.requerido ? 'required' : ''; %>
+          <label><%= c.etiqueta %><% if (c.requerido) { %> <span class="obligatorio" title="Campo obligatorio">*</span><% } %>
+            <% if (c.tipo === 'lista') { %>
+              <select name="<%= c.id %>" <%= req %>>
+                <option value="">Selecciona…</option>
+                <% c.opciones.forEach(o => { %><option value="<%= o %>" <%= valor === o ? 'selected' : '' %>><%= o %></option><% }) %>
+              </select>
+            <% } else if (c.tipo === 'area') { %>
+              <textarea name="<%= c.id %>" rows="4" maxlength="<%= c.max || 2000 %>" <%= req %>><%= valor %></textarea>
+            <% } else { %>
+              <input name="<%= c.id %>" value="<%= valor %>" maxlength="<%= c.max || 160 %>" <%= req %> <%= c.sugerencias === 'municipios' ? 'list=hv-municipios autocomplete=off' : '' %> <%= fijo ? 'readonly class=hv-solo-lectura aria-readonly=true' : '' %>>
+              <% if (fijo) { %><small>Se toma del contacto en Chatwoot</small><% } %>
+            <% } %>
+          </label>
+        <% }) %>
+      </fieldset>
+    <% }) %>
+    <p class="error" role="alert" hidden></p>
+    <div class="hv-acciones">
+      <button type="submit" class="btn primario"><%= hoja ? 'Guardar cambios' : 'Crear hoja de vida' %></button>
+      <% if (hoja) { %><button type="button" class="btn" data-hv="cancelar">Cancelar</button><% } %>
+    </div>
+  </form>
+<% } %>
+</div>

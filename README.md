@@ -19,6 +19,8 @@ Asesora ──► FerreObras (esta app) ──► PostgreSQL
 Administrador ──► /admin  (indicadores, gráficas de barras con filtros, tablas de trazabilidad, Excel)
 
 Asesora ──► /rutas  (planificador de despachos: clientes por municipio + mapa del recorrido)
+
+Chatwoot (pestaña "Cliente") ──► /hv  (hoja de vida del cliente de la conversación)
 ```
 
 1. La asesora crea la obra: cliente, obra, residente de obra, línea de WhatsApp, fecha inicial, número de etapas, intervalo entre etapas, días de aviso y código de precio por línea de producto.
@@ -78,6 +80,43 @@ Se leen las hojas con encabezado **CLIENTE**/NOMBRES y **MUNICIPIO**/CIUDAD (y, 
 
 Servicios externos que usa el navegador: Leaflet (`cdn.jsdelivr.net`), mapas de `tile.openstreetmap.org` y el trazado por carretera de `router.project-osrm.org`; el servidor consulta `nominatim.openstreetmap.org` solo para municipios fuera del catálogo y para buscar direcciones a pedido. Si no hay internet, la lista de clientes y la planificación funcionan igual.
 
+## Hoja de vida del cliente (`/hv`)
+
+Vista pensada para abrirse como pestaña dentro de la conversación de Chatwoot (Dashboard App). Muestra la hoja de vida del cliente de esa conversación sin salir de Chatwoot y sin volver a escribir el nombre ni el celular, que se toman del contacto.
+
+- **Una hoja por cliente**, identificada por el celular de 10 dígitos (sin +57). El celular sale de `phone_number` del contacto o, si no hay, de `custom_attributes.waha_whatsapp_jid`.
+- **Sin hoja**: formulario "Nueva hoja de vida" con el celular fijo. **Con hoja**: ficha de lectura por secciones con la fecha de la última actualización, quién la hizo y el botón **Editar**. Ficha y formulario se intercambian sin recargar la página.
+- **Layout propio** (`views/layout_hv.ejs`): sin cabecera, menú ni botón Salir, en una columna para un panel de 400 a 600 px.
+- **Campos**: se definen en un solo lugar, la constante `CAMPOS` de `src/hoja_vida.js`; la plantilla y la validación del servidor se ajustan solas. Por ahora son campos de prueba: nombre, tipo de cliente, municipio y observaciones. Se guardan en la columna `datos` (`jsonb`), así que cambiar la lista no requiere migración, y al editar se conservan los datos de campos que ya no estén en la lista.
+- **Trazabilidad**: cada creación o edición guarda `actualizado_por` (correo del agente de Chatwoot o usuario de la aplicación) y `updated_at`.
+
+### Rutas
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/hv?k=<clave>` | Página puente para Chatwoot: pide el contexto, crea la sesión del agente y carga la hoja del contacto |
+| POST | `/hv/sesion` | Crea la sesión del agente a partir del contexto de Chatwoot (exige la clave `CHATWOOT_HV_SECRET`) |
+| GET | `/hv/:celular` | Ficha o formulario. Con `?editar=1` abre el formulario; con `?fragmento=1` devuelve solo el contenido |
+| GET | `/hv/api/:celular` | JSON de la hoja y de la definición de campos |
+| POST | `/hv/:celular` | Crea o actualiza la hoja (por celular) |
+
+### Seguridad y acceso
+
+- **Dentro de Chatwoot**: la página verifica que el mensaje de contexto venga de `CHATWOOT_ORIGIN` (si no, muestra "Abre esta ficha desde Chatwoot") y llama a `POST /hv/sesion` con la clave de la URL y el correo del agente. El servidor entrega una cookie propia, `ferreobras_hv`, firmada, limitada a `/hv`, válida 12 horas y con `SameSite=None; Secure` en producción para que viaje dentro del iframe. Esa cookie **solo** abre `/hv`: no da acceso a Obras, Rutas, Agenda ni Administración.
+- **Por qué hay clave en la URL**: Chatwoot no firma el contexto que envía, y las cabeceras `Origin`/`Referer` de esa petición son las de FerreObras (y se pueden falsificar fuera del navegador). Sin la clave, cualquiera podría crear una sesión de agente y leer las hojas de vida.
+- **Fuera de Chatwoot**: `/hv/:celular` usa la sesión normal; sin sesión redirige a `/login`.
+- **Cabeceras de `/hv`**: `Content-Security-Policy: frame-ancestors 'self' <CHATWOOT_ORIGIN>` (solo Chatwoot puede embeberla), `Referrer-Policy: no-referrer` (la clave no se filtra) y `Cache-Control: no-store`. El resto de rutas no cambia sus cabeceras, y la cookie de sesión de la aplicación sigue con `SameSite=Lax`.
+- **Peticiones que modifican datos**: solo se aceptan en JSON y con la cabecera `X-FerreObras: hv` que envía la propia vista, así un formulario de otro sitio no puede usarlas aunque la cookie viaje con `SameSite=None`.
+
+### Registro en Chatwoot (una vez)
+
+1. Define `CHATWOOT_ORIGIN` y `CHATWOOT_HV_SECRET` en Dokploy y redespliega.
+2. En Chatwoot: **Settings → Integrations → Dashboard Apps → Add**.
+3. Nombre `Cliente`, URL `https://ferreobras.praxisia.org/hv?k=<CHATWOOT_HV_SECRET>`.
+4. Abre una conversación: aparece la pestaña **Cliente** con la hoja de vida del contacto.
+
+Para depurar, abre la consola del navegador dentro de Chatwoot: el contexto llega como texto JSON con `event: "appContext"`.
+
 ## Exportación a Excel
 
 Los archivos se generan con `exceljs` y tienen estructura y formato (títulos, encabezados azules, cebra, bordes, fechas y porcentajes con formato, filas de estado coloreadas, paneles congelados y filtros automáticos).
@@ -99,16 +138,17 @@ app/                 Aplicación web (Node 20 + Express + EJS)
   src/reportes.js    Filtros, indicadores, tablas y series del panel de administración
   src/excel.js       Libros de Excel (obra, panel y planificación de ruta) con estilo
   src/rutas.js       Módulo de rutas: tablas, clientes por ruta, planificación, importación de la agenda
+  src/hoja_vida.js   Hoja de vida embebida en Chatwoot: campos (CAMPOS), sesión de agente, rutas /hv
   src/municipios.js  Catálogo de municipios de Boyacá y sedes con coordenadas
   src/notify.js      Avisos a n8n
-  views/             Plantillas (incluye admin.ejs, rutas_planificador.ejs, rutas_gestion.ejs, ruta_form.ejs)
-  public/            style.css, app.js (común), admin.js (panel, Chart.js), rutas.js (planificador, Leaflet)
+  views/             Plantillas (incluye admin.ejs, rutas_planificador.ejs, rutas_gestion.ejs, ruta_form.ejs, layout_hv.ejs, hv_contenido.ejs)
+  public/            style.css, app.js (común), admin.js (panel, Chart.js), rutas.js (planificador, Leaflet), hv.js y hv.css (hoja de vida)
   Dockerfile
   .env.example
 n8n/
   VIP_Calendar.json  Crea, actualiza y elimina los eventos de Calendar
   VIP_Cierre.json    Etiqueta al cliente en Chatwoot cuando cierra su última obra
-schema.sql           Tablas de PostgreSQL
+schema.sql           Tablas creadas por los módulos de la aplicación (hojas_vida)
 ```
 
 ### Tablas
@@ -125,8 +165,9 @@ schema.sql           Tablas de PostgreSQL
 | `rutas_plan` | Planificación por ruta y cliente (ferretería u obra): incluido, estado del contacto, peso, observación, quién lo actualizó |
 | `rutas_ubicaciones` | Ubicación fijada a mano en el mapa para una ferretería (`c`) o una obra (`o`) |
 | `rutas_geocache` | Coordenadas encontradas para municipios fuera del catálogo |
+| `hojas_vida` | Hoja de vida por cliente: celular único, campos en `datos` (`jsonb`), id del contacto en Chatwoot, quién la creó y actualizó |
 
-El usuario administrador no requiere cambios en el esquema: se define por variables de entorno igual que las líneas. Las tablas del módulo de rutas se crean solas al arrancar la aplicación si no existen (`CREATE TABLE IF NOT EXISTS`); requieren que ya exista la tabla `obras`.
+El usuario administrador no requiere cambios en el esquema: se define por variables de entorno igual que las líneas. Las tablas del módulo de rutas y la tabla `hojas_vida` se crean solas al arrancar la aplicación si no existen (`CREATE TABLE IF NOT EXISTS`); las de rutas requieren que ya exista la tabla `obras`.
 
 ---
 
@@ -154,6 +195,8 @@ Importa los dos archivos de `n8n/`, verifica que las credenciales de PostgreSQL 
    | `ADMIN_PASS` | Clave del administrador. Vacía = sin acceso de administrador |
    | `N8N_WEBHOOK_CALENDAR` | URL del webhook `vip-calendar` |
    | `N8N_WEBHOOK_CIERRE` | URL del webhook `vip-cierre` |
+   | `CHATWOOT_ORIGIN` | Dominio de Chatwoot que puede embeber la hoja de vida (`https://ferreaceros.praxisia.org`) |
+   | `CHATWOOT_HV_SECRET` | Clave de la URL de la Dashboard App de Chatwoot. Solo letras y números. Sin ella no se entra desde Chatwoot |
    | `PORT` | Puerto interno (3000) |
 
 3. Dominio con HTTPS apuntando al puerto 3000.

@@ -11,6 +11,7 @@ const notify = require('./notify');
 const reportes = require('./reportes');
 const excel = require('./excel');
 const rutas = require('./rutas');
+const hojaVida = require('./hoja_vida');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -110,6 +111,9 @@ app.post('/login', ruta(async (req, res) => {
   res.status(401).render('login', { lineas: await lineasWhatsapp(), adminUser: adminHabilitado() ? ADMIN_USER : null, error: 'Usuario o clave incorrecta.' });
 }));
 app.post('/logout', (req, res) => { req.session = null; res.redirect('/login'); });
+// Hoja de vida (/hv): se abre dentro de Chatwoot con su propia autenticación y layout; por fuera usa la sesión normal.
+// Va antes de requireLogin para que la página puente cargue dentro del iframe sin sesión.
+app.use('/hv', hojaVida.router);
 app.use(requireLogin);
 app.use((req, res, next) => {
   res.locals.usuario = req.session.usuario;
@@ -455,6 +459,8 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 
 const port = process.env.PORT || 3000;
 // Las tablas del módulo de rutas se crean solas si no existen (el resto del esquema sigue en schema.sql)
-rutas.asegurarEsquema()
-  .catch((e) => console.error('[rutas] no se pudieron crear las tablas del módulo de rutas:', e.message))
-  .finally(() => app.listen(port, () => console.log(`FerreObras escuchando en :${port}`)));
+// La tabla hojas_vida del módulo de hoja de vida también se crea sola al arrancar.
+Promise.all([
+  rutas.asegurarEsquema().catch((e) => console.error('[rutas] no se pudieron crear las tablas del módulo de rutas:', e.message)),
+  hojaVida.asegurarEsquema().catch((e) => console.error('[hv] no se pudo crear la tabla hojas_vida:', e.message)),
+]).finally(() => app.listen(port, () => console.log(`FerreObras escuchando en :${port}`)));

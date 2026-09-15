@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Hoja de vida · FerreObras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/hv.css">
+</head>
+<body class="hv">
+<%# Layout de la hoja de vida: sin cabecera, sin menú y sin botón Salir (se abre dentro de Chatwoot) %>
+<main class="hv-main" id="hv" aria-live="polite"
+  data-modo="<%= puente ? 'puente' : 'directo' %>"
+  data-chatwoot-origin="<%= locals.chatwootOrigin || '' %>"
+  data-clave="<%= locals.clave || '' %>"
+  data-celular="<%= locals.celular || '' %>">
+  <div id="hv-contenido">
+    <% if (locals.error) { %>
+      <div class="hv-estado error"><p><%= error %></p></div>
+    <% } else if (puente) { %>
+      <div class="hv-estado" id="hv-estado"><span class="hv-cargando" aria-hidden="true"></span><p>Conectando con Chatwoot…</p></div>
+    <% } else { %>
+      <%- include('hv_contenido') %>
+    <% } %>
+  </div>
+</main>
+<div class="hv-toast" id="hv-toast" role="status" hidden></div>
+<datalist id="hv-municipios"><% (locals.municipios || []).forEach(m => { %><option value="<%= m.nombre %>"></option><% }) %></datalist>
+<script src="/static/hv.js" defer></script>
+</body>
+</html>
