@@ -48,7 +48,9 @@ async function asegurarEsquema() {
       created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE INDEX IF NOT EXISTS agenda_tareas_celular ON agenda_tareas (celular, fecha);`);
+    CREATE INDEX IF NOT EXISTS agenda_tareas_celular ON agenda_tareas (celular, fecha);
+    -- Tipo del evento que existe en Google Calendar (todo el día o con hora), para saber si hay que reemplazarlo
+    ALTER TABLE agenda_tareas ADD COLUMN IF NOT EXISTS calendario_todo_el_dia BOOLEAN;`);
 }
 
 // ---------- utilidades ----------
@@ -121,15 +123,30 @@ function cargaCalendario(t, lineas) {
 }
 // Envía la tarea a n8n y guarda el resultado en la fila (id del evento, enlace y estado de sincronización)
 async function sincronizar(t, evento) {
-  const r = await notify.agenda(evento, cargaCalendario(t, await lineasActivas()));
-  if (evento === 'tarea_eliminada') { if (!r.ok) console.warn(`[agenda] la tarea ${t.id} se eliminó pero no se pudo quitar del calendario: ${r.error}`); return null; }
+  const carga = cargaCalendario(t, await lineasActivas());
+  if (evento === 'tarea_eliminada') {
+    const r = await notify.agenda(evento, carga);
+    if (!r.ok) console.warn(`[agenda] la tarea ${t.id} se eliminó pero no se pudo quitar del calendario: ${r.error}`);
+    return null;
+  }
+  const guardar = (r, eventId, link) => db.query(
+    `UPDATE agenda_tareas SET google_event_id = $2, google_link = $3, calendario_estado = $4, calendario_error = $5, calendario_todo_el_dia = $6 WHERE id = $1 RETURNING *`,
+    [t.id, eventId, link, r.ok ? 'sincronizada' : (r.configurado ? 'error' : 'sin_configurar'), r.ok ? null : r.error,
+      r.ok ? carga.todo_el_dia : t.calendario_todo_el_dia]).then(x => x.rows[0]);
+  // Google no deja pasar un evento de "todo el día" a "con hora" (ni al revés) con una actualización: en ese caso
+  // se borra el evento y se crea de nuevo. Sin el tipo guardado (tareas anteriores) se asume que no cambió.
+  const tipoActual = t.calendario_todo_el_dia == null ? carga.todo_el_dia : t.calendario_todo_el_dia;
+  if (evento === 'tarea_actualizada' && t.google_event_id && tipoActual !== carga.todo_el_dia) {
+    const borrado = await notify.agenda('tarea_eliminada', carga);
+    if (!borrado.ok) return guardar(borrado, t.google_event_id, t.google_link);
+    evento = 'tarea_creada';
+    carga.google_event_id = null;
+  }
+  const r = await notify.agenda(evento, carga);
   const d = r.datos || {};
-  const eventId = r.ok ? (d.google_event_id || d.id || t.google_event_id || null) : t.google_event_id || null;
-  const link = r.ok ? (d.html_link || d.htmlLink || t.google_link || null) : t.google_link || null;
-  const estado = r.ok ? 'sincronizada' : (r.configurado ? 'error' : 'sin_configurar');
-  return (await db.query(
-    `UPDATE agenda_tareas SET google_event_id = $2, google_link = $3, calendario_estado = $4, calendario_error = $5 WHERE id = $1 RETURNING *`,
-    [t.id, eventId, link, estado, r.ok ? null : r.error])).rows[0];
+  const eventId = r.ok ? (d.google_event_id || d.id || carga.google_event_id || null) : t.google_event_id || null;
+  const link = r.ok ? (d.html_link || d.htmlLink || (carga.google_event_id ? t.google_link : null) || null) : t.google_link || null;
+  return guardar(r, eventId, link);
 }
 
 // ---------- datos ----------
