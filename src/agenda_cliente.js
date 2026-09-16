@@ -18,7 +18,9 @@ const PRIORIDADES = [
 ];
 const DURACION_MIN = 60; // duración del evento en el calendario cuando la tarea tiene hora
 // Color del evento en Google Calendar por prioridad (colorId de la API): 11 tomate, 5 banano, 7 pavo real.
-// Las tareas hechas pasan a 8 (grafito): la API no permite el aspecto atenuado de los días pasados y el gris es lo más parecido.
+// Las tareas hechas se muestran "sin fondo": la API no permite atenuar un evento ni quitarle la barra a uno de todo el día,
+// pero en la vista de mes los eventos con hora se dibujan solo como punto y texto. Por eso una tarea hecha de todo el día
+// pasa a un evento a las 12 a. m. sin duración, y su punto queda en 8 (grafito).
 const COLOR_CALENDARIO = { 1: '11', 2: '5', 3: '7' };
 const COLOR_HECHA = '8';
 
@@ -99,7 +101,7 @@ async function validar(body) {
 // Lo que recibe n8n: la tarea con el título, la descripción y las fechas ya armadas, para que el flujo solo
 // tenga que crear, actualizar o eliminar el evento e invitar al correo de la línea responsable.
 function cargaCalendario(t, lineas) {
-  const fecha = calc.toISO(t.fecha), hora = horaCorta(t.hora);
+  const fecha = calc.toISO(t.fecha), hora = horaCorta(t.hora), hecha = t.estado === 'hecha';
   const prioridad = PRIORIDADES.find(p => p.id === Number(t.prioridad)) || PRIORIDADES[1];
   const correo = (lineas.find(l => l.numero === t.responsable) || {}).correo || '';
   const descripcion = [
@@ -112,7 +114,9 @@ function cargaCalendario(t, lineas) {
     // Formato del título en Calendar: "#prioridad - Tarea - responsable", p. ej. "1 - Enviarle observaciones - 3535"
     titulo: `${t.estado === 'hecha' ? '✔ ' : ''}${prioridad.id} - ${t.tarea} - ${t.responsable}`, descripcion,
     color_id: t.estado === 'hecha' ? COLOR_HECHA : (COLOR_CALENDARIO[prioridad.id] || '7'),
-    todo_el_dia: !hora, inicio: hora ? `${fecha}T${hora}:00-05:00` : fecha, fin: hora ? masMinutos(fecha, hora, DURACION_MIN) : calc.addDays(fecha, 1),
+    ...(hora ? { todo_el_dia: false, inicio: `${fecha}T${hora}:00-05:00`, fin: masMinutos(fecha, hora, DURACION_MIN) }
+      : hecha ? { todo_el_dia: false, inicio: `${fecha}T00:00:00-05:00`, fin: `${fecha}T00:00:00-05:00` }
+      : { todo_el_dia: true, inicio: fecha, fin: calc.addDays(fecha, 1) }),
   };
 }
 // Envía la tarea a n8n y guarda el resultado en la fila (id del evento, enlace y estado de sincronización)
