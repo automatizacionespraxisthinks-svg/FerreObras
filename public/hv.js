@@ -96,7 +96,24 @@
     const primero = $('input, select, textarea', nuevo);
     if (primero) primero.focus();
   }
-  const itemVacio = (it) => Array.from(it.querySelectorAll('[data-campo]')).every(el => !String(el.value).trim());
+  // Códigos de precio de una obra: filas { producto, codigo } (se ignoran las filas vacías)
+  const filasPrecio = (it) => Array.from(it.querySelectorAll('[data-precio]'))
+    .map(f => ({ fila: f, producto: $('[data-producto]', f).value.trim(), codigo: $('[data-codigo]', f).value }))
+    .filter(f => f.producto || f.codigo);
+  const itemVacio = (it) => Array.from(it.querySelectorAll('[data-campo]')).every(el => !String(el.value).trim()) && !filasPrecio(it).length;
+  function actualizarPrecios(bloque) {
+    const n = bloque.querySelectorAll('[data-precio]').length;
+    $('[data-precios-vacio]', bloque).hidden = n > 0;
+    $('[data-hv=agregar-precio]', bloque).hidden = n >= Number(bloque.dataset.maximo || 20);
+  }
+  function agregarPrecio(bloque) {
+    const plantilla = document.getElementById('hv-plantilla-precio');
+    if (!plantilla) return;
+    $('[data-precios-lista]', bloque).appendChild(plantilla.content.cloneNode(true));
+    actualizarPrecios(bloque);
+    const filas = bloque.querySelectorAll('[data-precio]');
+    $('[data-producto]', filas[filas.length - 1]).focus();
+  }
 
   contenido.addEventListener('click', (e) => {
     const b = e.target.closest('[data-hv]');
@@ -104,6 +121,13 @@
     if (b.dataset.hv === 'editar') cargar({ editar: '1' });
     if (b.dataset.hv === 'cancelar') cargar();
     if (b.dataset.hv === 'agregar-item') agregarItem(b.closest('[data-repetible]'));
+    if (b.dataset.hv === 'agregar-precio') agregarPrecio(b.closest('[data-precios]'));
+    if (b.dataset.hv === 'quitar-precio') {
+      const bloque = b.closest('[data-precios]'), fila = b.closest('[data-precio]');
+      const siguiente = fila.nextElementSibling || fila.previousElementSibling;
+      fila.remove(); actualizarPrecios(bloque);
+      (siguiente ? $('[data-producto]', siguiente) : $('[data-hv=agregar-precio]', bloque)).focus();
+    }
     if (b.dataset.hv === 'quitar-item') {
       const it = b.closest('[data-item]'), grupo = b.closest('[data-repetible]');
       if (!itemVacio(it) && !confirm(`¿Quitar esta ${grupo.dataset.etiqueta.toLowerCase()}? Se borra al guardar.`)) return;
@@ -134,12 +158,22 @@
       error.textContent = 'Completa los campos marcados con *.'; error.hidden = false; faltante.focus();
       return;
     }
+    // Cada código de precio necesita tipo de producto y código
+    for (const it of form.querySelectorAll('[data-item]')) {
+      const incompleta = filasPrecio(it).find(f => !f.producto || !f.codigo);
+      if (incompleta) {
+        error.textContent = incompleta.producto ? `Elige el código de precio de "${incompleta.producto}".` : 'Escribe el tipo de producto de cada código de precio.';
+        error.hidden = false; $(incompleta.producto ? '[data-codigo]' : '[data-producto]', incompleta.fila).focus();
+        return;
+      }
+    }
     const body = {};
     for (const el of form.elements) if (el.name) body[el.name] = el.value;
     for (const grupo of grupos) {
       body[grupo.dataset.repetible] = Array.from(grupo.querySelectorAll('[data-items] > [data-item]')).filter(it => !itemVacio(it)).map(it => {
         const item = { id: it.dataset.id || '' };
         it.querySelectorAll('[data-campo]').forEach(el => { item[el.dataset.campo] = el.value; });
+        it.querySelectorAll('[data-precios]').forEach(bloque => { item[bloque.dataset.precios] = filasPrecio(bloque).map(f => ({ producto: f.producto, codigo: f.codigo })); });
         return item;
       });
     }

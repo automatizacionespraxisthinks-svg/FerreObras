@@ -31,6 +31,18 @@
 </main>
 <div class="hv-toast" id="hv-toast" role="status" hidden></div>
 <datalist id="hv-municipios"><% (locals.municipios || []).forEach(m => { %><option value="<%= m.nombre %>"></option><% }) %></datalist>
+<datalist id="hv-productos"><% (locals.productos || []).forEach(p => { %><option value="<%= p %>"></option><% }) %></datalist>
+<%# Fila de código de precio que se agrega con "+ Agregar código" %>
+<template id="hv-plantilla-precio">
+  <div class="hv-precio" data-precio>
+    <input data-producto list="hv-productos" maxlength="60" placeholder="Tipo de producto" aria-label="Tipo de producto" autocomplete="off">
+    <select data-codigo aria-label="Código de precio">
+      <option value="">Código…</option>
+      <% (locals.codigosPrecio || []).forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
+    </select>
+    <button type="button" class="hv-precio-quitar" data-hv="quitar-precio" aria-label="Quitar este código" title="Quitar este código">×</button>
+  </div>
+</template>
 <script src="/static/hv.js?v=<%= locals.versionEstaticos || '' %>" defer></script>
 </body>
 </html>

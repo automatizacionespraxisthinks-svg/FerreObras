@@ -15,7 +15,9 @@ const mun = require('./municipios');
 // Sección normal: sus campos se guardan en datos.<id del campo>.
 // Sección repetible (repetible: true): lista de 1 a N bloques guardada en datos.<id de la sección> = [{ id, ...campos }].
 // Campo:
-//   tipo: 'texto' | 'celular' | 'lista' | 'area'
+//   tipo: 'texto' | 'celular' | 'lista' | 'area' | 'precios'
+//     'precios': lista de { producto, codigo } que se agrega fila por fila (producto libre con sugerencias de las
+//     líneas de producto, código entre CODIGOS_PRECIO, los mismos de la ficha de obras). Empieza vacía.
 //   identidad: es el celular que identifica la hoja; se muestra fijo y no se guarda en datos (va en la columna celular)
 //   desdeChatwoot: se toma del contacto de Chatwoot y se muestra como solo lectura cuando hay contexto
 //   sugerencias: 'municipios' muestra el catálogo de municipios mientras se escribe
@@ -43,10 +45,13 @@ const CAMPOS = [
       { id: 'celular', etiqueta: 'Celular', tipo: 'celular', requerido: true },
       { id: 'direccion', etiqueta: 'Dirección de la obra', tipo: 'texto', requerido: true, max: 300 },
       { id: 'municipio', etiqueta: 'Municipio', tipo: 'texto', requerido: true, max: 160, sugerencias: 'municipios' },
+      { id: 'precios', etiqueta: 'Códigos de precio', tipo: 'precios', maximo: 20, max: 60 },
       { id: 'notas', etiqueta: 'Notas', tipo: 'area', max: 2000 },
     ],
   },
 ];
+// Códigos de precio: los mismos que se asignan por línea de producto en la ficha de obras
+const CODIGOS_PRECIO = ['R+R', 'R', 'E', 'F'];
 
 // ---------- configuración ----------
 const leer = (n) => String(process.env[n] || '').replace(/\r|\n/g, '').trim().replace(/^(["'])(.*)\1$/, '$2');
@@ -130,6 +135,7 @@ async function obtener(celular) {
 }
 // Limpia y valida un valor según su campo. Devuelve { valor } o { error }.
 function validarCampo(c, bruto, prefijo = '') {
+  if (c.tipo === 'precios') return validarPrecios(c, bruto, prefijo);
   let v = String(bruto == null ? '' : bruto).replace(/\r/g, '');
   v = c.tipo === 'area' ? v.trim() : v.replace(/\s+/g, ' ').trim();
   if (c.max) v = v.slice(0, c.max);
@@ -141,6 +147,27 @@ function validarCampo(c, bruto, prefijo = '') {
     v = cel;
   }
   return { valor: v };
+}
+// Filas { producto, codigo }: se ignoran las vacías; cada fila necesita ambos datos y un producto no se repite
+function validarPrecios(c, bruto, prefijo) {
+  const filas = (Array.isArray(bruto) ? bruto : []).filter(f => f && typeof f === 'object')
+    .map(f => ({ producto: String(f.producto == null ? '' : f.producto).replace(/\s+/g, ' ').trim().slice(0, c.max || 60), codigo: String(f.codigo == null ? '' : f.codigo).trim() }))
+    .filter(f => f.producto || f.codigo);
+  if (c.maximo && filas.length > c.maximo) return { error: `${prefijo}se permiten máximo ${c.maximo} códigos de precio.` };
+  const vistos = new Set();
+  for (const f of filas) {
+    if (!f.producto) return { error: `${prefijo}escribe el tipo de producto del código ${f.codigo}.` };
+    if (!CODIGOS_PRECIO.includes(f.codigo)) return { error: `${prefijo}elige el código de precio de "${f.producto}".` };
+    const k = f.producto.toLowerCase();
+    if (vistos.has(k)) return { error: `${prefijo}el producto "${f.producto}" está repetido en los códigos de precio.` };
+    vistos.add(k);
+  }
+  return { valor: filas };
+}
+// Líneas de producto activas: sugerencias para el tipo de producto (se puede escribir otro)
+async function productosSugeridos() {
+  try { return (await db.query('SELECT nombre FROM lineas_producto WHERE activa ORDER BY orden, id')).rows.map(r => r.nombre); }
+  catch (e) { console.warn('[hv] no se pudieron leer las líneas de producto:', e.message); return []; }
 }
 const mayuscula = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const idItem = (v) => (/^[a-z0-9-]{8,40}$/i.test(String(v || '')) ? String(v) : crypto.randomUUID());
@@ -160,8 +187,8 @@ function validar(body, contexto = {}) {
       continue;
     }
     // Bloques repetibles: se ignoran los que llegan completamente vacíos
-    const items = (Array.isArray(body[s.id]) ? body[s.id] : []).filter(it => it && typeof it === 'object'
-      && s.campos.some(c => String(it[c.id] == null ? '' : it[c.id]).trim()));
+    const conDato = (it, c) => (c.tipo === 'precios' ? Array.isArray(it[c.id]) && it[c.id].some(f => f && (String(f.producto || '').trim() || String(f.codigo || '').trim())) : String(it[c.id] == null ? '' : it[c.id]).trim());
+    const items = (Array.isArray(body[s.id]) ? body[s.id] : []).filter(it => it && typeof it === 'object' && s.campos.some(c => conDato(it, c)));
     if (items.length < (s.minimo || 0)) return { error: `Agrega al menos ${s.minimo === 1 ? 'una' : s.minimo} ${s.etiquetaItem.toLowerCase()}.` };
     if (s.maximo && items.length > s.maximo) return { error: `Se permiten máximo ${s.maximo} ${s.seccion.toLowerCase()}.` };
     datos[s.id] = [];
@@ -220,7 +247,7 @@ function soloDesdeLaVista(req, res, next) {
 
 // Página puente: sin datos; hace el handshake con Chatwoot y carga el contenido por fetch
 router.get('/', (req, res) => {
-  res.render('layout_hv', { puente: true, clave: String(req.query.k || ''), campos: CAMPOS, municipios: mun.MUNICIPIOS });
+  productosSugeridos().then(productos => res.render('layout_hv', { puente: true, clave: String(req.query.k || ''), campos: CAMPOS, municipios: mun.MUNICIPIOS, productos, codigosPrecio: CODIGOS_PRECIO }));
 });
 
 // Sesión de agente a partir del contexto de Chatwoot
@@ -259,7 +286,8 @@ router.get('/:celular(\\d{10})', authHv, async (req, res, next) => {
     const hoja = await obtener(req.params.celular);
     const contexto = contextoDe(req);
     const modo = !hoja || req.query.editar === '1' ? 'formulario' : 'ficha';
-    const locals = { puente: false, celular: req.params.celular, hoja: fichaJson(hoja), modo, contexto, campos: CAMPOS, municipios: mun.MUNICIPIOS, quien: req.hv };
+    const locals = { puente: false, celular: req.params.celular, hoja: fichaJson(hoja), modo, contexto, campos: CAMPOS, municipios: mun.MUNICIPIOS, quien: req.hv,
+      productos: await productosSugeridos(), codigosPrecio: CODIGOS_PRECIO };
     if (req.query.fragmento === '1') return res.render('hv_contenido', locals);
     res.render('layout_hv', locals);
   } catch (e) { next(e); }
@@ -284,4 +312,4 @@ router.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(500).render('layout_hv', { puente: false, error: 'Ocurrió un error inesperado al cargar la hoja de vida. Intenta de nuevo.', campos: CAMPOS, municipios: [] });
 });
 
-module.exports = { router, asegurarEsquema, CAMPOS, normalizarCelular, validar, guardar, obtener, CHATWOOT_ORIGIN };
+module.exports = { router, asegurarEsquema, CAMPOS, CODIGOS_PRECIO,normalizarCelular, validar, guardar, obtener, CHATWOOT_ORIGIN };

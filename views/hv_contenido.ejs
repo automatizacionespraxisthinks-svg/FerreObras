@@ -16,7 +16,28 @@
      const o = opciones || {};
      const fijo = o.fijo;
      const attrNombre = o.repetible ? `data-campo="${c.id}"` : `name="${c.id}"`;
-     const req = c.requerido ? 'required' : ''; %>
+     const req = c.requerido ? 'required' : '';
+     if (c.tipo === 'precios') {
+       const filas = Array.isArray(valor) ? valor : []; %>
+  <div class="hv-ancho hv-precios" data-precios="<%= c.id %>" data-maximo="<%= c.maximo || 20 %>">
+    <span class="hv-precios-titulo"><%= c.etiqueta %></span>
+    <div class="hv-precios-lista" data-precios-lista>
+      <% filas.forEach(f => { %>
+        <div class="hv-precio" data-precio>
+          <input data-producto list="hv-productos" maxlength="<%= c.max || 60 %>" placeholder="Tipo de producto" aria-label="Tipo de producto" autocomplete="off" value="<%= f.producto %>">
+          <select data-codigo aria-label="Código de precio">
+            <option value="">Código…</option>
+            <% (locals.codigosPrecio || []).forEach(cod => { %><option value="<%= cod %>" <%= f.codigo === cod ? 'selected' : '' %>><%= cod %></option><% }) %>
+          </select>
+          <button type="button" class="hv-precio-quitar" data-hv="quitar-precio" aria-label="Quitar este código" title="Quitar este código">×</button>
+        </div>
+      <% }) %>
+    </div>
+    <p class="hv-vacio" data-precios-vacio <%= filas.length ? 'hidden' : '' %>>Sin códigos de precio.</p>
+    <button type="button" class="btn chico hv-agregar-precio" data-hv="agregar-precio">+ Agregar código</button>
+  </div>
+<%     return;
+     } %>
   <label class="<%= c.tipo === 'area' ? 'hv-ancho' : '' %>"><%= c.etiqueta %><% if (c.requerido || c.identidad) { %> <%- obligatorio %><% } %>
     <% if (c.tipo === 'lista') { %>
       <select <%- attrNombre %> <%= req %>>
@@ -80,7 +101,10 @@
           <article class="hv-item lectura">
             <h3><%= s.etiquetaItem %> <%= i + 1 %><% if (it.municipio) { %> <span class="hv-item-sub">· <%= it.municipio %></span><% } %></h3>
             <dl class="hv-datos">
-              <% s.campos.forEach(c => { if (!it[c.id]) return; %>
+              <% s.campos.forEach(c => { if (!it[c.id] || (Array.isArray(it[c.id]) && !it[c.id].length)) return;
+                   if (c.tipo === 'precios') { %>
+                <div class="hv-dato largo"><dt><%= c.etiqueta %></dt><dd class="hv-codigos"><% it[c.id].forEach(f => { %><span class="hv-codigo"><%= f.producto %> <b><%= f.codigo %></b></span><% }) %></dd></div>
+              <%   return; } %>
                 <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><% if (c.tipo === 'celular') { %><a href="tel:+57<%= it[c.id] %>"><%= fmtCel(it[c.id]) %></a><% } else { %><%= it[c.id] %><% } %></dd></div>
               <% }) %>
             </dl>

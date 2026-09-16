@@ -68,3 +68,20 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .hv-item-campos .hv-ancho, .hv-form .hv-ancho { grid-column: 1 / -1; }
 .hv-agregar { width: 100%; justify-content: center; border-style: dashed; }
 .hv-repetible legend .obligatorio { letter-spacing: 0; }
+
+/* ---------- códigos de precio de cada obra ---------- */
+.hv-precios { margin: .45rem 0; padding: .55rem .6rem; border-radius: var(--radio-chico); background: var(--fondo); }
+.hv-precios-titulo { display: block; font-size: .85rem; font-weight: 500; color: var(--tinta-2); margin-bottom: .35rem; }
+.hv-precios-lista { display: flex; flex-direction: column; gap: .35rem; }
+.hv-precios-lista:empty { display: none; }
+.hv-precios .hv-vacio { margin: 0 0 .4rem; }
+.hv-precio { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem 34px; gap: .4rem; align-items: center; }
+.hv-precio input, .hv-precio select { width: 100%; min-height: 38px; margin: 0; padding: .4rem .55rem; border: 1.5px solid var(--borde-2); border-radius: var(--radio-chico); background: #fff; font-weight: 400; color: var(--tinta); }
+.hv-precio select { appearance: none; -webkit-appearance: none; padding-right: 1.8rem; font-weight: 700; color: var(--azul); background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23243672' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right .5rem center; }
+.hv-precio input:focus, .hv-precio select:focus { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(9, 47, 119, .12); outline: none; }
+.hv-precio-quitar { width: 34px; height: 34px; border: 1px solid var(--borde-2); border-radius: var(--radio-chico); background: #fff; color: var(--tinta-suave); font-size: 1.15rem; line-height: 1; padding: 0; }
+.hv-precio-quitar:hover { color: var(--rojo); border-color: var(--rojo); background: var(--rojo-suave); }
+.hv-agregar-precio { margin-top: .45rem; border-style: dashed; }
+.hv-codigos { display: flex; flex-wrap: wrap; gap: .35rem; white-space: normal !important; }
+.hv-codigo { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .25rem .15rem .6rem; border-radius: 999px; background: var(--azul-claro); color: var(--azul); font-size: .82rem; }
+.hv-codigo b { padding: .05rem .45rem; border-radius: 999px; background: var(--azul); color: var(--amarillo); font-weight: 800; font-size: .75rem; }
