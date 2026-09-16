@@ -118,7 +118,7 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .ag-vacio { padding: 1rem; text-align: center; border: 1.5px dashed var(--borde-2); border-radius: var(--radio-chico); }
 .ag-subtitulo { margin: .6rem 0 .1rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-suave); }
 .ag-subtitulo small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
-.ag-tarea { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr); gap: .6rem; padding: .6rem .7rem; border: 1px solid var(--borde); border-left: 5px solid var(--tinta-suave); border-radius: var(--radio-chico); background: #fff; transition: box-shadow .15s; }
+.ag-tarea { display: grid; grid-template-columns: 10.4rem minmax(0, 1fr) auto; gap: .6rem .8rem; align-items: start; padding: .55rem .7rem; border: 1px solid var(--borde); border-left: 5px solid var(--tinta-suave); border-radius: var(--radio-chico); background: #fff; transition: box-shadow .15s; }
 .ag-tarea.p1 { border-left-color: var(--rojo); }
 .ag-tarea.p2 { border-left-color: var(--naranja); }
 .ag-tarea.p3 { border-left-color: var(--azul-medio); }
@@ -127,33 +127,43 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .ag-tarea.hecha .ag-texto { color: var(--tinta-suave); text-decoration: line-through; }
 .ag-tarea.editando { box-shadow: 0 0 0 3px var(--amarillo); }
 .ag-tarea.vencido .ag-fecha b { color: var(--rojo); }
-.ag-fecha { display: flex; flex-direction: column; gap: .15rem; padding-right: .6rem; border-right: 1px dashed var(--borde-2); }
-.ag-fecha b { font-size: .88rem; color: var(--azul); text-transform: capitalize; line-height: 1.2; }
+/* izquierda: fecha, hora, días y etiquetas */
+.ag-fecha { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: .15rem .4rem; padding-right: .7rem; border-right: 1px dashed var(--borde-2); align-self: stretch; }
+.ag-fecha b { flex-basis: 100%; font-size: .88rem; color: var(--azul); text-transform: capitalize; line-height: 1.2; }
 .ag-hora { font-size: .78rem; color: var(--tinta-2); }
-.ag-fecha .chip { align-self: flex-start; margin-top: .15rem; }
-.ag-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
-.ag-cab { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
-.ag-prio { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: .1rem .45rem; border-radius: 3px; background: var(--gris-suave); color: var(--tinta-2); }
+.ag-fecha .chip { margin: 0; }
+.ag-etiquetas { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+.ag-etiquetas .chip { margin: 0; }
+.ag-prio { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: .1rem .45rem; border-radius: 3px; background: var(--gris-suave); color: var(--tinta-2); white-space: nowrap; }
 .ag-tarea.p1 .ag-prio { background: var(--rojo-suave); color: var(--rojo); }
 .ag-tarea.p2 .ag-prio { background: var(--naranja-suave); color: var(--naranja); }
 .ag-tarea.p3 .ag-prio { background: var(--azul-claro); color: var(--azul); }
-.ag-cal { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; font-weight: 600; margin-left: auto; }
-.ag-cal.ok { color: var(--verde); }
-.ag-cal.pendiente { color: var(--naranja); }
-.ag-cab .link-suave { margin: 0; padding: .1rem .35rem; font-size: .72rem; border: none; background: none; box-shadow: none; color: var(--azul-medio); }
+/* centro: la tarea */
+.ag-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
 .ag-texto { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .ag-texto small { display: block; font-weight: 400; }
 .ag-notas { margin: 0; font-size: .82rem; color: var(--tinta-2); white-space: pre-line; overflow-wrap: anywhere; }
-.ag-acciones { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .15rem; }
-.ag-acciones .btn.link { padding: .3rem .4rem; }
 .ag-traza { font-size: .7rem; color: var(--tinta-suave); }
+/* derecha: calendario y, debajo, los botones */
+.ag-lado { display: flex; flex-direction: column; align-items: flex-end; gap: .4rem; }
+.ag-cal-fila { display: flex; align-items: center; gap: .2rem; }
+.ag-cal { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.ag-cal.ok { color: var(--verde); }
+.ag-cal.pendiente { color: var(--naranja); }
+.ag-cal-fila .link-suave { margin: 0; padding: .1rem .35rem; font-size: .72rem; border: none; background: none; box-shadow: none; color: var(--azul-medio); }
+.ag-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .3rem; }
+.ag-acciones .btn.link { padding: .3rem .35rem; }
 .ag-hechas { margin-top: 1rem; }
 .ag-hechas summary { cursor: pointer; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-suave); margin-bottom: .5rem; }
 .ag-hechas summary:hover { color: var(--azul); }
-@media (max-width: 480px) {
+@media (max-width: 600px) {
+  .ag-tarea { grid-template-columns: 9.6rem minmax(0, 1fr); }
+  .ag-lado { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; padding-top: .35rem; border-top: 1px dashed var(--borde-2); }
+}
+@media (max-width: 420px) {
   .ag-tarea { grid-template-columns: 1fr; }
-  .ag-fecha { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0 0 .35rem; border-right: none; border-bottom: 1px dashed var(--borde-2); }
-  .ag-fecha .chip { margin: 0; }
+  .ag-fecha { gap: .35rem .5rem; padding: 0 0 .35rem; border-right: none; border-bottom: 1px dashed var(--borde-2); }
+  .ag-fecha b, .ag-etiquetas { flex-basis: auto; margin: 0; }
 }
 
 /* ---------- códigos de precio de cada obra ---------- */

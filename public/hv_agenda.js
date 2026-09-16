@@ -123,10 +123,15 @@
           <h2 class="ag-subtitulo">Avisos de obras en curso <small>Etapas programadas en Obras; también están en el calendario</small></h2>
           ${d.avisos.map(a => `
             <article class="ag-tarea aviso ${claseDias(a.dias)}">
-              <div class="ag-fecha"><b>${esc(fechaLarga(a.fecha_aviso))}</b><span class="chip ${claseDias(a.dias)}">${esc(textoDias(a.dias))}</span></div>
+              <div class="ag-fecha">
+                <b>${esc(fechaLarga(a.fecha_aviso))}</b><span class="chip ${claseDias(a.dias)}">${esc(textoDias(a.dias))}</span>
+                <div class="ag-etiquetas"><span class="chip-tag">Obra</span><span class="chip codigo">Línea ${esc(a.linea)}</span></div>
+              </div>
               <div class="ag-cuerpo">
-                <div class="ag-cab"><span class="chip-tag">Obra</span><span class="chip codigo">Línea ${esc(a.linea)}</span>${a.en_calendario ? `<span class="ag-cal ok">${ICONO.ok} En el calendario</span>` : ''}</div>
                 <p class="ag-texto">Aviso de <b>${esc(a.etapa)}</b> · ${esc(a.obra)} <small>Etapa programada para el ${esc(fechaLarga(a.fecha))}</small></p>
+              </div>
+              <div class="ag-lado">
+                ${a.en_calendario ? `<span class="ag-cal ok">${ICONO.ok} En el calendario</span>` : ''}
                 <div class="ag-acciones"><a class="btn chico" href="/obras/${a.obra_id}" target="_blank" rel="noopener">Ver obra</a></div>
               </div>
             </article>`).join('')}
@@ -149,17 +154,24 @@
       : `<span class="ag-cal pendiente" title="${esc(t.calendario_estado === 'sin_configurar' ? 'El calendario no está configurado en el servidor' : (t.calendario_error || ''))}">${ICONO.alerta} Sin copia en el calendario</span> <button type="button" class="btn chico link-suave" data-ag="sincronizar">Reintentar</button>`;
     return `
       <article class="ag-tarea p${t.prioridad} ${pendiente ? claseDias(t.dias) : 'hecha'} ${estado.editando && estado.editando.id === t.id ? 'editando' : ''}" data-id="${t.id}">
-        <div class="ag-fecha"><b>${esc(fechaLarga(t.fecha))}</b><span class="ag-hora">${t.hora ? esc(hora12(t.hora)) : 'todo el día'}</span>${pendiente ? `<span class="chip ${claseDias(t.dias)}">${esc(textoDias(t.dias))}</span>` : ''}</div>
+        <div class="ag-fecha">
+          <b>${esc(fechaLarga(t.fecha))}</b>
+          <span class="ag-hora">${t.hora ? esc(hora12(t.hora)) : 'todo el día'}</span>
+          ${pendiente ? `<span class="chip ${claseDias(t.dias)}">${esc(textoDias(t.dias))}</span>` : ''}
+          <div class="ag-etiquetas"><span class="ag-prio" title="${esc(p.ayuda || '')}">${t.prioridad} · ${esc(p.nombre || '')}</span><span class="chip codigo">Línea ${esc(t.responsable)}</span></div>
+        </div>
         <div class="ag-cuerpo">
-          <div class="ag-cab"><span class="ag-prio" title="${esc(p.ayuda || '')}">P${t.prioridad} · ${esc(p.nombre || '')}</span><span class="chip codigo">Línea ${esc(t.responsable)}</span>${calendario}</div>
           <p class="ag-texto">${esc(t.tarea)}</p>
           ${t.notas ? `<p class="ag-notas">${esc(t.notas)}</p>` : ''}
+          <small class="ag-traza">${t.actualizado_por && t.actualizado_por !== t.creado_por ? `Actualizada por ${esc(quien(t.actualizado_por))} · ${esc(cuando(t.updated_at))}` : `Creada por ${esc(quien(t.creado_por))} · ${esc(cuando(t.created_at))}`}</small>
+        </div>
+        <div class="ag-lado">
+          <div class="ag-cal-fila">${calendario}</div>
           <div class="ag-acciones">
             <button type="button" class="btn chico ${pendiente ? 'primario' : ''}" data-ag="estado" data-estado="${pendiente ? 'hecha' : 'pendiente'}">${pendiente ? '✓ Marcar hecha' : 'Volver a pendiente'}</button>
             ${pendiente ? '<button type="button" class="btn chico" data-ag="editar">Editar</button>' : ''}
             <button type="button" class="btn chico link" data-ag="eliminar">Eliminar</button>
           </div>
-          <small class="ag-traza">${t.actualizado_por && t.actualizado_por !== t.creado_por ? `Actualizada por ${esc(quien(t.actualizado_por))} · ${esc(cuando(t.updated_at))}` : `Creada por ${esc(quien(t.creado_por))} · ${esc(cuando(t.created_at))}`}</small>
         </div>
       </article>`;
   }
