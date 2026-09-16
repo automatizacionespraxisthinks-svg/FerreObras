@@ -111,12 +111,34 @@
 
         <div class="ag-division" role="separator" aria-label="Eventos de este cliente">
           <span class="ag-division-texto">Eventos de este cliente</span>
-          <span class="hv-conteo">${d.tareas.length + d.avisos.length}</span>
+          <span class="hv-conteo">${d.tareas.length + d.avisos.length + d.seguimientos.length}</span>
         </div>
 
         <section class="ag-lista" aria-label="Tareas pendientes">
-          ${pendientes.length ? pendientes.map(tarjeta).join('') : `<p class="hv-vacio ag-vacio">No hay tareas pendientes para este cliente.${d.tareas.length || d.avisos.length ? '' : ' Programa la primera con el formulario de arriba.'}</p>`}
+          ${pendientes.length ? pendientes.map(tarjeta).join('') : `<p class="hv-vacio ag-vacio">No hay tareas pendientes para este cliente.${d.tareas.length || d.avisos.length || d.seguimientos.length ? '' : ' Programa la primera con el formulario de arriba.'}</p>`}
         </section>
+
+        ${d.seguimientos.length ? `
+        <section class="ag-lista ag-seguimientos" aria-label="Seguimientos automáticos">
+          <h2 class="ag-subtitulo">Seguimientos automáticos <small>Programados por etiquetas en Chatwoot; el cliente recibe el mensaje por WhatsApp y el evento está en el calendario. Se quitan al retirar la etiqueta.</small></h2>
+          ${d.seguimientos.map(s => {
+            const p = d.prioridades.find(x => x.id === s.prioridad) || {};
+            const cd = s.dias == null ? '' : claseDias(s.dias);
+            return `
+            <article class="ag-tarea seguimiento p${s.prioridad} ${cd}">
+              <div class="ag-fecha">
+                <b>${s.fecha ? esc(fechaLarga(s.fecha)) : 'Sin fecha'}</b>${s.fecha ? `<span class="ag-hora">${s.hora ? esc(hora12(s.hora)) : 'todo el día'}</span><span class="chip ${cd}">${esc(textoDias(s.dias))}</span>` : ''}
+                <div class="ag-etiquetas"><span class="ag-prio" title="${esc(p.ayuda || '')}">${s.prioridad} · ${esc(p.nombre || '')}</span>${s.linea ? `<span class="chip codigo">Línea ${esc(s.linea)}</span>` : ''}<span class="chip-tag auto" title="Seguimiento automático por etiqueta">Auto</span></div>
+              </div>
+              <div class="ag-cuerpo">
+                <p class="ag-texto">Seguimiento ${esc(s.tipo.charAt(0).toLowerCase() + s.tipo.slice(1))}</p>
+                <p class="ag-notas">Etiqueta <code>${esc(s.label)}</code> · envío ${s.envios} de ${s.max_sends}${s.max_sends > 1 ? ` · cada ${s.interval_days} día${s.interval_days === 1 ? '' : 's'}` : ''}${s.ultimo_envio ? ` · último el ${esc(fechaLarga(s.ultimo_envio))}` : ''}</p>
+                <small class="ag-traza">Se gestiona con la etiqueta en Chatwoot: para cancelarlo, quita la etiqueta de la conversación.</small>
+              </div>
+              <div class="ag-lado">${s.en_calendario ? `<span class="ag-cal ok">${ICONO.ok} En Google Calendar</span>` : ''}</div>
+            </article>`;
+          }).join('')}
+        </section>` : ''}
 
         ${d.avisos.length ? `
         <section class="ag-lista ag-avisos" aria-label="Avisos de obras">

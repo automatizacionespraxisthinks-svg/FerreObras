@@ -51,6 +51,12 @@ async function asegurarEsquema() {
     CREATE INDEX IF NOT EXISTS agenda_tareas_celular ON agenda_tareas (celular, fecha);
     -- Tipo del evento que existe en Google Calendar (todo el día o con hora), para saber si hay que reemplazarlo
     ALTER TABLE agenda_tareas ADD COLUMN IF NOT EXISTS calendario_todo_el_dia BOOLEAN;`);
+  // Seguimientos automáticos por etiquetas: tabla conversation_memory del flujo "Crear Seguimiento Etiquetas" de n8n
+  // (misma base). La columna linea la llena el flujo; se agrega aquí si la tabla existe y aún no la tiene.
+  try {
+    await db.query(`DO $$ BEGIN IF to_regclass('public.conversation_memory') IS NOT NULL THEN
+      ALTER TABLE conversation_memory ADD COLUMN IF NOT EXISTS linea TEXT; END IF; END $$;`);
+  } catch (e) { console.warn('[agenda] no se pudo preparar conversation_memory:', e.message); }
 }
 
 // ---------- utilidades ----------
@@ -149,24 +155,62 @@ async function sincronizar(t, evento) {
   return guardar(r, eventId, link);
 }
 
+// ---------- seguimientos automáticos por etiquetas (conversation_memory, la llena n8n) ----------
+// followup_type -> nombre y prioridad; deben coincidir con FOLLOWUP_MAP del flujo "Crear Seguimiento Etiquetas"
+const SEGUIMIENTOS = {
+  quotation_daily: { nombre: 'Cotización (diario)', prioridad: 1 },
+  construction_weekly: { nombre: 'Seguimiento de obra (semanal)', prioridad: 2 },
+  hardware_store_15d: { nombre: 'Ferretería (quincenal)', prioridad: 2 },
+  quotation_15d: { nombre: 'Cotización (quincenal)', prioridad: 2 },
+  inactive_30: { nombre: 'Cliente inactivo (mensual)', prioridad: 3 },
+  inactive_60: { nombre: 'Cliente inactivo (2 meses)', prioridad: 3 },
+  inactive_180: { nombre: 'Cliente inactivo (6 meses)', prioridad: 3 },
+};
+// Los seguimientos son eventos de todo el día en Calendar (sin hora); el mensaje lo envía el cron de las 8:00 a. m.
+let avisoSinTabla = false;
+// Solo los activos: al quitar la etiqueta en Chatwoot el flujo borra la fila, así que desaparecen de la agenda solos
+async function seguimientosActivos(celular) {
+  try {
+    return (await db.query(
+      `SELECT id, conversation_id, customer_name, followup_type, label, linea, interval_days, max_sends, followup_count, next_followup_at, last_followup_at, google_event_id, created_at
+       FROM conversation_memory
+       WHERE status = 'active' AND right(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), 10) = $1
+       ORDER BY next_followup_at NULLS LAST, id`, [celular])).rows;
+  } catch (e) {
+    if (!avisoSinTabla) { avisoSinTabla = true; console.warn('[agenda] no se pudieron leer los seguimientos automáticos (conversation_memory):', e.message); }
+    return [];
+  }
+}
+function fichaSeguimiento(s, hoy) {
+  const cfg = SEGUIMIENTOS[s.followup_type] || { nombre: s.label || s.followup_type, prioridad: 2 };
+  const fecha = calc.toISOBogota(s.next_followup_at);
+  return {
+    id: s.id, conversation_id: s.conversation_id, tipo: cfg.nombre, prioridad: cfg.prioridad, label: s.label || '', linea: s.linea || '',
+    fecha, hora: null, dias: fecha ? calc.diffDays(hoy, fecha) : null,
+    envios: Number(s.followup_count) || 0, max_sends: Number(s.max_sends) || 1, interval_days: Number(s.interval_days) || 0,
+    ultimo_envio: calc.toISOBogota(s.last_followup_at), en_calendario: !!s.google_event_id, creado: s.created_at,
+  };
+}
+
 // ---------- datos ----------
 async function obtenerTarea(celular, id) {
   return (await db.query('SELECT * FROM agenda_tareas WHERE id = $1 AND celular = $2', [id, celular])).rows[0] || null;
 }
 async function datosCliente(celular, contexto) {
   const hoy = calc.hoyBogota();
-  const [tareas, avisos, lineas, cliente] = await Promise.all([
+  const [tareas, avisos, lineas, cliente, seguimientos] = await Promise.all([
     db.query('SELECT * FROM agenda_tareas WHERE celular = $1 ORDER BY fecha, hora NULLS LAST, prioridad, id', [celular]).then(r => r.rows),
     // Avisos de etapas de obras en curso del mismo cliente: también están en Google Calendar (flujo VIP_Calendar)
     db.query(`SELECT o.id AS obra_id, o.cliente, o.obra, o.linea, e.id AS etapa_id, e.nombre AS etapa, e.fecha_programada, e.fecha_aviso, e.google_event_id
               FROM etapas e JOIN obras o ON o.id = e.obra_id
               WHERE o.celular = $1 AND o.estado = 'activa' AND e.estado = 'pendiente' AND e.fecha_aviso IS NOT NULL ORDER BY e.fecha_aviso, e.orden`, [celular]).then(r => r.rows),
-    lineasActivas(), nombreCliente(celular, contexto),
+    lineasActivas(), nombreCliente(celular, contexto), seguimientosActivos(celular),
   ]);
   return {
     celular, cliente, hoy, prioridades: PRIORIDADES, lineas: lineas.map(l => l.numero),
     tareas: tareas.map(t => fichaJson(t, hoy)),
     avisos: avisos.map(a => ({ obra_id: a.obra_id, obra: a.obra, linea: a.linea, etapa: a.etapa, fecha: calc.toISO(a.fecha_programada), fecha_aviso: calc.toISO(a.fecha_aviso), dias: calc.diffDays(hoy, calc.toISO(a.fecha_aviso)), en_calendario: !!a.google_event_id })),
+    seguimientos: seguimientos.map(s => fichaSeguimiento(s, hoy)),
   };
 }
 async function crear(celular, datos, { usuario, contexto }) {

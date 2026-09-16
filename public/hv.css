@@ -123,6 +123,11 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .ag-tarea.p2 { border-left-color: var(--naranja); }
 .ag-tarea.p3 { border-left-color: var(--azul-medio); }
 .ag-tarea.aviso { border-left-color: var(--amarillo-osc); background: #FFFDF0; }
+/* seguimientos automáticos por etiquetas: uva, el mismo color de sus eventos en Google Calendar */
+.ag-tarea.seguimiento { border-left-color: #7B1FA2; background: #FBF7FD; }
+.ag-tarea.seguimiento .ag-texto { color: #4A148C; }
+.chip-tag.auto { background: #7B1FA2; color: #fff; }
+.ag-notas code { font: inherit; font-size: .78rem; padding: 0 .3rem; border-radius: 3px; background: var(--gris-suave); color: var(--tinta); }
 .ag-tarea.hecha { border-left-color: var(--verde); background: var(--fondo); }
 .ag-tarea.hecha .ag-texto { color: var(--tinta-suave); text-decoration: line-through; }
 .ag-tarea.editando { box-shadow: 0 0 0 3px var(--amarillo); }
