@@ -12,6 +12,7 @@ const reportes = require('./reportes');
 const excel = require('./excel');
 const rutas = require('./rutas');
 const hojaVida = require('./hoja_vida');
+const agendaCliente = require('./agenda_cliente');
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -113,6 +114,7 @@ app.post('/login', ruta(async (req, res) => {
 app.post('/logout', (req, res) => { req.session = null; res.redirect('/login'); });
 // Hoja de vida (/hv): se abre dentro de Chatwoot con su propia autenticación y layout; por fuera usa la sesión normal.
 // Va antes de requireLogin para que la página puente cargue dentro del iframe sin sesión.
+app.use('/hv/agenda', agendaCliente.router); // antes de /hv para que no lo capture la ruta /hv/:celular
 app.use('/hv', hojaVida.router);
 app.use(requireLogin);
 app.use((req, res, next) => {
@@ -463,4 +465,5 @@ const port = process.env.PORT || 3000;
 Promise.all([
   rutas.asegurarEsquema().catch((e) => console.error('[rutas] no se pudieron crear las tablas del módulo de rutas:', e.message)),
   hojaVida.asegurarEsquema().catch((e) => console.error('[hv] no se pudo crear la tabla hojas_vida:', e.message)),
+  agendaCliente.asegurarEsquema().catch((e) => console.error('[agenda] no se pudo crear la tabla agenda_tareas:', e.message)),
 ]).finally(() => app.listen(port, () => console.log(`FerreObras escuchando en :${port}`)));

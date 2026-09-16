@@ -21,6 +21,7 @@ Administrador ──► /admin  (indicadores, gráficas de barras con filtros, t
 Asesora ──► /rutas  (planificador de despachos: clientes por municipio + mapa del recorrido)
 
 Chatwoot (pestaña "Cliente") ──► /hv  (hoja de vida del cliente de la conversación)
+Chatwoot (pestaña "Agenda")  ──► /hv/agenda  (tareas del cliente) ──► n8n ──► Google Calendar (línea responsable invitada)
 ```
 
 1. La asesora crea la obra: cliente, obra, residente de obra, línea de WhatsApp, fecha inicial, número de etapas, intervalo entre etapas, días de aviso y código de precio por línea de producto.
@@ -119,6 +120,18 @@ Vista pensada para abrirse como pestaña dentro de la conversación de Chatwoot 
 3. Nombre `Cliente`, URL `https://ferreobras.praxisia.org/hv?k=<CHATWOOT_HV_SECRET>`.
 4. Abre una conversación: aparece la pestaña **Cliente** con la hoja de vida del contacto.
 
+## Agenda del cliente (`/hv/agenda`)
+
+Segunda Dashboard App para Chatwoot: las tareas de seguimiento programadas para el cliente de la conversación, con copia en Google Calendar. Comparte con la hoja de vida el layout, la autenticación (clave `CHATWOOT_HV_SECRET`, cookie `ferreobras_hv`), las cabeceras y la validación del origen; el código común del navegador está en `public/hv_comun.js`.
+
+- **Arriba, el formulario "Nueva tarea"**: prioridad (1 alta, 2 media, 3 baja), tarea (por ejemplo *Llamar al cliente para ofrecerle cemento*), responsable (una de las líneas de WhatsApp activas), fecha, hora opcional y notas opcionales. Sin hora la tarea queda como evento de todo el día.
+- **Abajo, separados por una división**, los eventos del cliente: las tareas pendientes ordenadas por fecha con su prioridad, línea responsable, notas y estado en el calendario; los **avisos de etapas de sus obras en curso** (los que crea el flujo `VIP_Calendar`, con enlace a la obra); y, plegadas, las tareas ya realizadas.
+- **Acciones por tarea**: marcar hecha (o volverla a pendiente), editar (carga la tarea en el formulario de arriba), eliminar (también la quita del calendario) y **Reintentar** cuando no se pudo enviar al calendario.
+- **Google Calendar**: la aplicación no habla con Google directamente; envía cada creación, edición, cambio de estado y eliminación al webhook `N8N_WEBHOOK_AGENDA` y espera la respuesta (15 s). El flujo `n8n/VIP_Agenda.json` crea, actualiza o elimina el evento e invita al correo de la línea responsable (`lineas_whatsapp`), y responde `{ "google_event_id", "html_link" }`; la aplicación guarda ambos y muestra el enlace **En Google Calendar**. Si n8n no responde o la variable no está definida, la tarea se guarda igual con el aviso *Sin copia en el calendario* y se puede reintentar.
+- Lo que recibe n8n ya viene listo para el nodo de Google Calendar: `titulo` (`[P1] Llamar al cliente… · Nombre del cliente`, con `✔` cuando está hecha), `descripcion` (cliente, celular, responsable, prioridad y notas), `inicio` y `fin` en hora de Bogotá (`2026-09-20T10:30:00-05:00`, una hora de duración) o solo la fecha cuando es de todo el día (`todo_el_dia: true`), `correo_responsable` y `google_event_id` para actualizar o eliminar.
+- **Rutas**: `GET /hv/agenda?k=<clave>` (puente para Chatwoot), `GET /hv/agenda/:celular` (con la sesión normal), `GET /hv/agenda/api/:celular` (JSON: cliente, tareas, avisos de obras, líneas y prioridades) y `POST /hv/agenda/api/:celular[/:id[/estado|/sincronizar|/eliminar]]`. Los `POST` exigen la cabecera `X-FerreObras: hv` igual que la hoja de vida; una tarea solo se puede tocar desde el celular al que pertenece.
+- **Registro en Chatwoot**: otra Dashboard App con nombre `Agenda` y URL `https://ferreobras.praxisia.org/hv/agenda?k=<CHATWOOT_HV_SECRET>`. En n8n, importa `n8n/VIP_Agenda.json`, enlaza la credencial de Google Calendar en los tres nodos, elige el calendario, activa el flujo y pon su Production URL en `N8N_WEBHOOK_AGENDA`.
+
 Para depurar, abre la consola del navegador dentro de Chatwoot: el contexto llega como texto JSON con `event: "appContext"`.
 
 ## Exportación a Excel
@@ -142,6 +155,7 @@ app/                 Aplicación web (Node 20 + Express + EJS)
   src/reportes.js    Filtros, indicadores, tablas y series del panel de administración
   src/excel.js       Libros de Excel (obra, panel y planificación de ruta) con estilo
   src/rutas.js       Módulo de rutas: tablas, clientes por ruta, planificación, importación de la agenda
+  src/agenda_cliente.js  Agenda del cliente para Chatwoot: tareas por celular y envío a Google Calendar vía n8n
   src/hoja_vida.js   Hoja de vida embebida en Chatwoot: campos (CAMPOS), sesión de agente, rutas /hv
   src/municipios.js  Catálogo de municipios de Boyacá y sedes con coordenadas
   src/notify.js      Avisos a n8n
@@ -169,6 +183,7 @@ schema.sql           Tablas creadas por los módulos de la aplicación (hojas_vi
 | `rutas_plan` | Planificación por ruta y cliente (ferretería u obra): incluido, estado del contacto, peso, observación, quién lo actualizó |
 | `rutas_ubicaciones` | Ubicación fijada a mano en el mapa para una ferretería (`c`) o una obra (`o`) |
 | `rutas_geocache` | Coordenadas encontradas para municipios fuera del catálogo |
+| `agenda_tareas` | Tareas de la agenda del cliente: celular, prioridad, tarea, línea responsable, fecha, hora, notas, estado, id y enlace del evento en Google Calendar, estado de sincronización |
 | `hojas_vida` | Hoja de vida por cliente: celular único, campos en `datos` (`jsonb`), id del contacto en Chatwoot, quién la creó y actualizó |
 
 El usuario administrador no requiere cambios en el esquema: se define por variables de entorno igual que las líneas. Las tablas del módulo de rutas y la tabla `hojas_vida` se crean solas al arrancar la aplicación si no existen (`CREATE TABLE IF NOT EXISTS`); las de rutas requieren que ya exista la tabla `obras`.
@@ -199,6 +214,7 @@ Importa los dos archivos de `n8n/`, verifica que las credenciales de PostgreSQL 
    | `ADMIN_PASS` | Clave del administrador. Vacía = sin acceso de administrador |
    | `N8N_WEBHOOK_CALENDAR` | URL del webhook `vip-calendar` |
    | `N8N_WEBHOOK_CIERRE` | URL del webhook `vip-cierre` |
+   | `N8N_WEBHOOK_AGENDA` | URL del webhook `vip-agenda` (agenda del cliente → Google Calendar) |
    | `CHATWOOT_ORIGIN` | Dominio de Chatwoot que puede embeber la hoja de vida (`https://ferreaceros.praxisia.org`) |
    | `CHATWOOT_HV_SECRET` | Clave de la URL de la Dashboard App de Chatwoot. Solo letras y números. Sin ella no se entra desde Chatwoot |
    | `PORT` | Puerto interno (3000) |

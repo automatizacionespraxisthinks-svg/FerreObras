@@ -1,0 +1,114 @@
+{
+  "name": "VIP_Agenda",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vip-agenda",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Webhook vip-agenda",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "vip-agenda"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" }, "conditions": [ { "leftValue": "={{ $json.body.evento }}", "rightValue": "tarea_creada", "operator": { "type": "string", "operation": "equals" } } ], "combinator": "and" }, "renameOutput": true, "outputKey": "crear" },
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" }, "conditions": [ { "leftValue": "={{ $json.body.evento }}", "rightValue": "tarea_actualizada", "operator": { "type": "string", "operation": "equals" } } ], "combinator": "and" }, "renameOutput": true, "outputKey": "actualizar" },
+            { "conditions": { "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" }, "conditions": [ { "leftValue": "={{ $json.body.evento }}", "rightValue": "tarea_eliminada", "operator": { "type": "string", "operation": "equals" } } ], "combinator": "and" }, "renameOutput": true, "outputKey": "eliminar" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "¿Qué pasó?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "calendar": { "__rl": true, "mode": "list", "value": "primary" },
+        "start": "={{ $json.body.tarea.inicio }}",
+        "end": "={{ $json.body.tarea.fin }}",
+        "additionalFields": {
+          "allday": "={{ $json.body.tarea.todo_el_dia ? 'yes' : 'no' }}",
+          "attendees": "={{ $json.body.tarea.correo_responsable ? [$json.body.tarea.correo_responsable] : [] }}",
+          "description": "={{ $json.body.tarea.descripcion }}",
+          "summary": "={{ $json.body.tarea.titulo }}",
+          "sendUpdates": "all"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Crear evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [500, 120]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "calendar": { "__rl": true, "mode": "list", "value": "primary" },
+        "eventId": "={{ $json.body.tarea.google_event_id }}",
+        "updateFields": {
+          "allday": "={{ $json.body.tarea.todo_el_dia ? 'yes' : 'no' }}",
+          "attendees": "={{ $json.body.tarea.correo_responsable ? [$json.body.tarea.correo_responsable] : [] }}",
+          "description": "={{ $json.body.tarea.descripcion }}",
+          "end": "={{ $json.body.tarea.fin }}",
+          "start": "={{ $json.body.tarea.inicio }}",
+          "summary": "={{ $json.body.tarea.titulo }}"
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Actualizar evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": { "__rl": true, "mode": "list", "value": "primary" },
+        "eventId": "={{ $json.body.tarea.google_event_id }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Eliminar evento",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [500, 480],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { google_event_id: $json.id || $('Webhook vip-agenda').item.json.body.tarea.google_event_id, html_link: $json.htmlLink || '' } }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Responder a FerreObras",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [780, 300]
+    }
+  ],
+  "connections": {
+    "Webhook vip-agenda": { "main": [ [ { "node": "¿Qué pasó?", "type": "main", "index": 0 } ] ] },
+    "¿Qué pasó?": { "main": [
+      [ { "node": "Crear evento", "type": "main", "index": 0 } ],
+      [ { "node": "Actualizar evento", "type": "main", "index": 0 } ],
+      [ { "node": "Eliminar evento", "type": "main", "index": 0 } ]
+    ] },
+    "Crear evento": { "main": [ [ { "node": "Responder a FerreObras", "type": "main", "index": 0 } ] ] },
+    "Actualizar evento": { "main": [ [ { "node": "Responder a FerreObras", "type": "main", "index": 0 } ] ] },
+    "Eliminar evento": { "main": [ [ { "node": "Responder a FerreObras", "type": "main", "index": 0 } ] ] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "ferreobras" }
+}

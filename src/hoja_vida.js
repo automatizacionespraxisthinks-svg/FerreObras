@@ -229,15 +229,17 @@ function contextoDe(req) {
 // ---------- rutas ----------
 const router = express.Router();
 
-// Cabeceras de todo /hv: se puede embeber solo desde Chatwoot y la clave de la URL no se filtra por Referer
-router.use((req, res, next) => {
+// Cabeceras de todo /hv (también las usa la agenda del cliente en /hv/agenda): se puede embeber solo desde
+// Chatwoot y la clave de la URL no se filtra por Referer
+function cabecerasHv(req, res, next) {
   res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${CHATWOOT_ORIGIN}`);
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cache-Control', 'no-store');
   res.locals.chatwootOrigin = CHATWOOT_ORIGIN;
   res.locals.versionEstaticos = VERSION_ESTATICOS;
   next();
-});
+}
+router.use(cabecerasHv);
 // Las peticiones que modifican datos solo se aceptan desde el propio JavaScript de la vista (cabecera propia + JSON):
 // un formulario de otro sitio no puede enviarlas aunque la cookie viaje con SameSite=None.
 function soloDesdeLaVista(req, res, next) {
@@ -312,4 +314,8 @@ router.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(500).render('layout_hv', { puente: false, error: 'Ocurrió un error inesperado al cargar la hoja de vida. Intenta de nuevo.', campos: CAMPOS, municipios: [] });
 });
 
-module.exports = { router, asegurarEsquema, CAMPOS, CODIGOS_PRECIO,normalizarCelular, validar, guardar, obtener, CHATWOOT_ORIGIN };
+module.exports = {
+  router, asegurarEsquema, CAMPOS, CODIGOS_PRECIO, normalizarCelular, validar, guardar, obtener, CHATWOOT_ORIGIN,
+  // compartido con la agenda del cliente (src/agenda_cliente.js)
+  cabecerasHv, authHv, soloDesdeLaVista, contextoDe,
+};

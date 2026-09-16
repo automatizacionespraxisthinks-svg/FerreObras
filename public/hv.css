@@ -69,6 +69,72 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .hv-agregar { width: 100%; justify-content: center; border-style: dashed; }
 .hv-repetible legend .obligatorio { letter-spacing: 0; }
 
+/* ============================================================
+   Agenda del cliente (/hv/agenda): formulario arriba, división marcada y eventos abajo
+   ============================================================ */
+.hv-vista-agenda .hv-main { max-width: 720px; }
+.ag-form { margin: 0; padding: .85rem .9rem .9rem; border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
+.ag-form.editando { border-left-color: var(--azul); background: var(--azul-claro); }
+.ag-form-titulo { margin: 0 0 .35rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--azul); }
+.ag-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 .75rem; }
+.ag-campos .hv-ancho { grid-column: 1 / -1; }
+.ag-campos label { margin: .4rem 0; }
+.ag-campos input[type=date], .ag-campos input[type=time] { width: 100%; }
+.ag-form .error { margin: .5rem 0 0; }
+.ag-form-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; }
+.ag-form-nota { display: inline-flex; align-items: center; gap: .3rem; margin: 0 0 0 auto; font-size: .74rem; color: var(--tinta-suave); }
+.ag-form-nota svg { color: var(--azul-medio); flex: none; }
+
+/* división entre el formulario y los eventos */
+.ag-division { display: flex; align-items: center; gap: .6rem; margin: 1.4rem 0 .9rem; padding-top: .9rem; border-top: 3px solid var(--amarillo); }
+.ag-division::after { content: ""; flex: 1; height: 1px; background: var(--borde-2); }
+.ag-division-texto { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--azul); }
+.hv-conteo { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; border-radius: 999px; background: var(--amarillo); color: var(--azul); text-align: center; font-size: .72rem; font-weight: 700; letter-spacing: 0; }
+.hv-conteo.gris { background: var(--gris-suave); color: var(--tinta-2); }
+
+/* tarjetas de eventos */
+.ag-lista { display: flex; flex-direction: column; gap: .55rem; }
+.ag-vacio { padding: 1rem; text-align: center; border: 1.5px dashed var(--borde-2); border-radius: var(--radio-chico); }
+.ag-subtitulo { margin: .6rem 0 .1rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-suave); }
+.ag-subtitulo small { display: block; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ag-tarea { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr); gap: .6rem; padding: .6rem .7rem; border: 1px solid var(--borde); border-left: 5px solid var(--tinta-suave); border-radius: var(--radio-chico); background: #fff; transition: box-shadow .15s; }
+.ag-tarea.p1 { border-left-color: var(--rojo); }
+.ag-tarea.p2 { border-left-color: var(--naranja); }
+.ag-tarea.p3 { border-left-color: var(--azul-medio); }
+.ag-tarea.aviso { border-left-color: var(--amarillo-osc); background: #FFFDF0; }
+.ag-tarea.hecha { border-left-color: var(--verde); background: var(--fondo); }
+.ag-tarea.hecha .ag-texto { color: var(--tinta-suave); text-decoration: line-through; }
+.ag-tarea.editando { box-shadow: 0 0 0 3px var(--amarillo); }
+.ag-tarea.vencido .ag-fecha b { color: var(--rojo); }
+.ag-fecha { display: flex; flex-direction: column; gap: .15rem; padding-right: .6rem; border-right: 1px dashed var(--borde-2); }
+.ag-fecha b { font-size: .88rem; color: var(--azul); text-transform: capitalize; line-height: 1.2; }
+.ag-hora { font-size: .78rem; color: var(--tinta-2); }
+.ag-fecha .chip { align-self: flex-start; margin-top: .15rem; }
+.ag-cuerpo { min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
+.ag-cab { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.ag-prio { font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; padding: .1rem .45rem; border-radius: 3px; background: var(--gris-suave); color: var(--tinta-2); }
+.ag-tarea.p1 .ag-prio { background: var(--rojo-suave); color: var(--rojo); }
+.ag-tarea.p2 .ag-prio { background: var(--naranja-suave); color: var(--naranja); }
+.ag-tarea.p3 .ag-prio { background: var(--azul-claro); color: var(--azul); }
+.ag-cal { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; font-weight: 600; margin-left: auto; }
+.ag-cal.ok { color: var(--verde); }
+.ag-cal.pendiente { color: var(--naranja); }
+.ag-cab .link-suave { margin: 0; padding: .1rem .35rem; font-size: .72rem; border: none; background: none; box-shadow: none; color: var(--azul-medio); }
+.ag-texto { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.ag-texto small { display: block; font-weight: 400; }
+.ag-notas { margin: 0; font-size: .82rem; color: var(--tinta-2); white-space: pre-line; overflow-wrap: anywhere; }
+.ag-acciones { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .15rem; }
+.ag-acciones .btn.link { padding: .3rem .4rem; }
+.ag-traza { font-size: .7rem; color: var(--tinta-suave); }
+.ag-hechas { margin-top: 1rem; }
+.ag-hechas summary { cursor: pointer; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--tinta-suave); margin-bottom: .5rem; }
+.ag-hechas summary:hover { color: var(--azul); }
+@media (max-width: 480px) {
+  .ag-tarea { grid-template-columns: 1fr; }
+  .ag-fecha { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0 0 .35rem; border-right: none; border-bottom: 1px dashed var(--borde-2); }
+  .ag-fecha .chip { margin: 0; }
+}
+
 /* ---------- códigos de precio de cada obra ---------- */
 .hv-precios { margin: .45rem 0; padding: .55rem .6rem; border-radius: var(--radio-chico); background: var(--fondo); }
 .hv-precios-titulo { display: block; font-size: .85rem; font-weight: 500; color: var(--tinta-2); margin-bottom: .35rem; }
