@@ -90,9 +90,9 @@ Vista pensada para abrirse como pestaña dentro de la conversación de Chatwoot 
 - **Layout propio** (`views/layout_hv.ejs`): sin cabecera, menú ni botón Salir, en una columna para un panel de 400 a 600 px.
 - **Campos**: se definen en un solo lugar, la constante `CAMPOS` de `src/hoja_vida.js`; la plantilla y la validación del servidor se ajustan solas. Se guardan en la columna `datos` (`jsonb`), así que cambiar la lista no requiere migración.
   - **Datos del cliente o empresa**: nombre (tal como está en Chatwoot, de solo lectura), celular (del contacto, identifica la hoja), dirección y notas.
-  - **Obras** (una o varias, botón *Agregar obra*): nombre del residente de obra, NIT o cédula para facturación, celular, dirección de la obra, municipio, códigos de precio y notas. Cada obra guarda un identificador propio que se conserva al editar. Las obras que se dejan totalmente vacías no se guardan.
+  - **Obras** (opcionales; la hoja empieza sin obras y se agregan con el botón *Agregar obra*, igual que los códigos de precio): nombre del residente de obra, NIT o cédula para facturación, celular, dirección de la obra, municipio, códigos de precio y notas. Cada obra guarda un identificador propio que se conserva al editar. Las obras que se dejan totalmente vacías no se guardan.
   - **Códigos de precio por obra**: la obra empieza sin códigos; con *+ Agregar código* se añade una fila con el **tipo de producto** (texto libre, con sugerencias de las líneas de producto activas) y el **código** (`R+R`, `R`, `E` o `F`, los mismos de la ficha de obras). Cada fila necesita ambos datos, un producto no se repite dentro de la misma obra y se permiten hasta 20. Se guardan en `datos.obras[].precios` como `[{ producto, codigo }]` y en la ficha se muestran como etiquetas.
-  - Obligatorios (con `*`): nombre, dirección y al menos una obra con residente, celular de 10 dígitos, dirección y municipio. El NIT y las notas son opcionales.
+  - Obligatorios (con `*`): nombre y dirección. Si se agrega una obra, esta necesita residente, celular de 10 dígitos, dirección y municipio; el NIT y las notas son opcionales.
 - **Trazabilidad**: cada creación o edición guarda `actualizado_por` (correo del agente de Chatwoot o usuario de la aplicación) y `updated_at`.
 
 ### Rutas

@@ -134,12 +134,13 @@
              }) %>
         </fieldset>
       <% } else {
-           const items = (d[s.id] && d[s.id].length) ? d[s.id] : Array.from({ length: s.minimo || 1 }, () => ({})); %>
+           const items = (d[s.id] && d[s.id].length) ? d[s.id] : Array.from({ length: s.minimo || 0 }, () => ({})); %>
         <fieldset class="hv-seccion hv-repetible" data-repetible="<%= s.id %>" data-minimo="<%= s.minimo || 0 %>" data-maximo="<%= s.maximo || 30 %>" data-etiqueta="<%= s.etiquetaItem %>">
           <legend><%= s.seccion %> <% if (s.minimo) { %><%- obligatorio %><% } %></legend>
           <div class="hv-items" data-items>
             <% items.forEach((it, i) => tarjetaFormulario(s, it, i)) %>
           </div>
+          <p class="hv-vacio" data-items-vacio <%= items.length ? 'hidden' : '' %>>Sin <%= s.seccion.toLowerCase() %> registradas. Agrega una si el cliente la tiene.</p>
           <template data-plantilla><% tarjetaFormulario(s, {}, 0) %></template>
           <button type="button" class="btn hv-agregar" data-hv="agregar-item">+ Agregar <%= s.etiquetaItem.toLowerCase() %></button>
         </fieldset>

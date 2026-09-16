@@ -37,7 +37,7 @@ const CAMPOS = [
     seccion: 'Obras',
     repetible: true,
     etiquetaItem: 'Obra',
-    minimo: 1,
+    minimo: 0, // las obras son opcionales: la hoja empieza sin obras y se agregan con "+ Agregar obra" cuando se necesiten
     maximo: 30,
     campos: [
       { id: 'residente', etiqueta: 'Nombre del residente de obra', tipo: 'texto', requerido: true, max: 160 },

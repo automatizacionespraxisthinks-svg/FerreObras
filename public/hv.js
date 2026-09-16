@@ -55,6 +55,8 @@
       $('[data-hv=quitar-item]', it).hidden = items.length <= min;
     });
     $('[data-hv=agregar-item]', grupo).hidden = items.length >= max;
+    const vacio = $('[data-items-vacio]', grupo);
+    if (vacio) vacio.hidden = items.length > 0;
   }
   function agregarItem(grupo) {
     const lista = $('[data-items]', grupo), plantilla = $('template[data-plantilla]', grupo);
