@@ -17,6 +17,8 @@ const PRIORIDADES = [
   { id: 3, nombre: 'Baja', ayuda: 'Cuando haya tiempo' },
 ];
 const DURACION_MIN = 60; // duración del evento en el calendario cuando la tarea tiene hora
+// Color del evento en Google Calendar por prioridad (colorId de la API): 11 tomate, 5 banano, 7 pavo real
+const COLOR_CALENDARIO = { 1: '11', 2: '5', 3: '7' };
 
 // ---------- esquema (idempotente; se ejecuta al arrancar) ----------
 async function asegurarEsquema() {
@@ -105,7 +107,8 @@ function cargaCalendario(t, lineas) {
   return {
     id: t.id, celular: t.celular, cliente: t.cliente || '', prioridad: prioridad.id, prioridad_nombre: prioridad.nombre, tarea: t.tarea,
     responsable: t.responsable, correo_responsable: correo, fecha, hora, notas: t.notas || '', estado: t.estado, google_event_id: t.google_event_id || null,
-    titulo: `${t.estado === 'hecha' ? '✔ ' : ''}[P${prioridad.id}] ${t.tarea}${t.cliente ? ' · ' + t.cliente : ''}`, descripcion,
+    // Formato del título en Calendar: "#prioridad - Tarea - responsable", p. ej. "1 - Enviarle observaciones - 3535"
+    titulo: `${t.estado === 'hecha' ? '✔ ' : ''}${prioridad.id} - ${t.tarea} - ${t.responsable}`, descripcion, color_id: COLOR_CALENDARIO[prioridad.id] || '7',
     todo_el_dia: !hora, inicio: hora ? `${fecha}T${hora}:00-05:00` : fecha, fin: hora ? masMinutos(fecha, hora, DURACION_MIN) : calc.addDays(fecha, 1),
   };
 }
