@@ -64,20 +64,25 @@
     const hoy = d.hoy;
     contenido.innerHTML = `
       <div class="hv-hoja ag" data-celular="${esc(d.celular)}">
-        <header class="hv-cab">
+        <header class="hv-cab ag-cab-pagina">
           <div class="hv-cab-texto">
             <p class="hv-sobre">Agenda del cliente</p>
-            <h1>${esc(d.cliente || 'Cliente')}</h1>
-            <p class="hv-cel">${fmtCel(d.celular)} · ${pendientes.length} tarea${pendientes.length === 1 ? '' : 's'} pendiente${pendientes.length === 1 ? '' : 's'}</p>
+            <h1>${esc(d.cliente || 'Cliente')} <span class="hv-cel">${fmtCel(d.celular)} · ${pendientes.length} pendiente${pendientes.length === 1 ? '' : 's'}</span></h1>
           </div>
         </header>
 
         <form class="ag-form ${t ? 'editando' : ''}" id="ag-form" novalidate>
-          <h2 class="ag-form-titulo">${t ? `Editar tarea` : 'Nueva tarea'}</h2>
+          <div class="ag-form-cab">
+            <h2 class="ag-form-titulo">${t ? 'Editar tarea' : 'Nueva tarea'}</h2>
+            <small class="ag-form-nota" title="Se programa también en Google Calendar e invita a la línea responsable">${ICONO.cal} También en Google Calendar</small>
+          </div>
           <div class="ag-campos">
+            <label class="ag-tarea-campo">Tarea <span class="obligatorio" title="Campo obligatorio">*</span>
+              <input name="tarea" required maxlength="200" value="${v('tarea', '')}" placeholder="Llamar al cliente para ofrecerle cemento" autocomplete="off">
+            </label>
             <label>Prioridad <span class="obligatorio" title="Campo obligatorio">*</span>
               <select name="prioridad" required>
-                ${d.prioridades.map(p => `<option value="${p.id}" ${Number(t ? t.prioridad : 2) === p.id ? 'selected' : ''}>${p.id} · ${esc(p.nombre)} — ${esc(p.ayuda)}</option>`).join('')}
+                ${d.prioridades.map(p => `<option value="${p.id}" title="${esc(p.ayuda)}" ${Number(t ? t.prioridad : 2) === p.id ? 'selected' : ''}>${p.id} · ${esc(p.nombre)}</option>`).join('')}
               </select>
             </label>
             <label>Responsable <span class="obligatorio" title="Campo obligatorio">*</span>
@@ -85,21 +90,23 @@
                 ${d.lineas.map(l => `<option value="${esc(l)}" ${(t ? t.responsable : d.lineas[0]) === l ? 'selected' : ''}>Línea ${esc(l)}</option>`).join('')}
               </select>
             </label>
-            <label class="hv-ancho">Tarea <span class="obligatorio" title="Campo obligatorio">*</span>
-              <input name="tarea" required maxlength="200" value="${v('tarea', '')}" placeholder="Llamar al cliente para ofrecerle cemento" autocomplete="off">
-            </label>
             <label>Fecha <span class="obligatorio" title="Campo obligatorio">*</span>
               <input type="date" name="fecha" required value="${v('fecha', hoy)}" min="${t ? '' : hoy}">
             </label>
-            <label>Hora <input type="time" name="hora" value="${v('hora', '')}"><small>Sin hora queda como evento de todo el día</small></label>
-            <label class="hv-ancho">Notas <textarea name="notas" rows="2" maxlength="2000" placeholder="Opcional">${v('notas', '')}</textarea></label>
+            <label title="Sin hora queda como evento de todo el día">Hora <span class="ag-opcional">opcional</span>
+              <input type="time" name="hora" value="${v('hora', '')}">
+            </label>
+          </div>
+          <div class="ag-form-pie">
+            <label class="ag-notas-campo">Notas <span class="ag-opcional">opcional</span>
+              <textarea name="notas" rows="1" maxlength="2000" placeholder="Detalles para la línea responsable">${v('notas', '')}</textarea>
+            </label>
+            <div class="ag-form-acciones">
+              ${t ? '<button type="button" class="btn" data-ag="cancelar">Cancelar</button>' : ''}
+              <button type="submit" class="btn primario">${t ? 'Guardar' : 'Programar tarea'}</button>
+            </div>
           </div>
           <p class="error" role="alert" hidden></p>
-          <div class="ag-form-acciones">
-            <button type="submit" class="btn primario">${t ? 'Guardar cambios' : 'Programar tarea'}</button>
-            ${t ? '<button type="button" class="btn" data-ag="cancelar">Cancelar</button>' : ''}
-            <small class="ag-form-nota">${ICONO.cal} Se programa también en Google Calendar e invita a la línea responsable.</small>
-          </div>
         </form>
 
         <div class="ag-division" role="separator" aria-label="Eventos de este cliente">

@@ -72,21 +72,42 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 /* ============================================================
    Agenda del cliente (/hv/agenda): formulario arriba, división marcada y eventos abajo
    ============================================================ */
-.hv-vista-agenda .hv-main { max-width: 720px; }
-.ag-form { margin: 0; padding: .85rem .9rem .9rem; border: 1px solid var(--borde); border-left: 5px solid var(--amarillo); border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
+.hv-vista-agenda .hv-main { max-width: 860px; padding-top: .75rem; }
+/* cabecera en una sola línea */
+.ag-cab-pagina { padding-bottom: .5rem; margin-bottom: .65rem; }
+.ag-cab-pagina h1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; font-size: 1.1rem; }
+.ag-cab-pagina h1 .hv-cel { margin: 0; font-size: .82rem; font-weight: 600; }
+
+/* formulario compacto: tarea / prioridad · responsable · fecha · hora / notas + botón */
+.ag-form { margin: 0; padding: .6rem .75rem .65rem; border: 1px solid var(--borde); border-left: 4px solid var(--amarillo); border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
 .ag-form.editando { border-left-color: var(--azul); background: var(--azul-claro); }
-.ag-form-titulo { margin: 0 0 .35rem; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--azul); }
-.ag-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 .75rem; }
-.ag-campos .hv-ancho { grid-column: 1 / -1; }
-.ag-campos label { margin: .4rem 0; }
-.ag-campos input[type=date], .ag-campos input[type=time] { width: 100%; }
-.ag-form .error { margin: .5rem 0 0; }
-.ag-form-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .6rem; }
-.ag-form-nota { display: inline-flex; align-items: center; gap: .3rem; margin: 0 0 0 auto; font-size: .74rem; color: var(--tinta-suave); }
+.ag-form-cab { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .1rem; }
+.ag-form-titulo { margin: 0; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--azul); }
+.ag-form-nota { display: inline-flex; align-items: center; gap: .3rem; margin: 0; font-size: .7rem; color: var(--tinta-suave); white-space: nowrap; }
 .ag-form-nota svg { color: var(--azul-medio); flex: none; }
+.ag-campos { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, .9fr); gap: 0 .55rem; }
+.ag-campos .ag-tarea-campo { grid-column: 1 / -1; }
+.ag-form label { margin: .3rem 0 0; font-size: .76rem; }
+.ag-form label input, .ag-form label select, .ag-form label textarea { min-height: 34px; margin-top: .15rem; padding: .3rem .5rem; font-size: .84rem; }
+.ag-form label select { padding-right: 1.7rem; background-position: right .45rem center; }
+.ag-form input[type=date], .ag-form input[type=time] { width: 100%; }
+.ag-opcional { font-size: .68rem; font-weight: 400; color: var(--tinta-suave); }
+.ag-form-pie { display: flex; align-items: flex-end; gap: .55rem; }
+.ag-notas-campo { flex: 1; min-width: 0; }
+.ag-notas-campo textarea { min-height: 34px; height: 34px; resize: vertical; }
+.ag-form-acciones { display: flex; gap: .4rem; flex: none; }
+.ag-form-acciones .btn { min-height: 34px; padding: .35rem .9rem; font-size: .84rem; }
+.ag-form .error { margin: .45rem 0 0; padding: .35rem .6rem; font-size: .82rem; }
+@media (max-width: 560px) {
+  .ag-campos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .ag-form-pie { flex-wrap: wrap; }
+  .ag-notas-campo { flex-basis: 100%; }
+  .ag-form-acciones { flex: 1; }
+  .ag-form-acciones .btn { flex: 1; justify-content: center; }
+}
 
 /* división entre el formulario y los eventos */
-.ag-division { display: flex; align-items: center; gap: .6rem; margin: 1.4rem 0 .9rem; padding-top: .9rem; border-top: 3px solid var(--amarillo); }
+.ag-division { display: flex; align-items: center; gap: .6rem; margin: .9rem 0 .6rem; padding-top: .6rem; border-top: 3px solid var(--amarillo); }
 .ag-division::after { content: ""; flex: 1; height: 1px; background: var(--borde-2); }
 .ag-division-texto { font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--azul); }
 .hv-conteo { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; border-radius: 999px; background: var(--amarillo); color: var(--azul); text-align: center; font-size: .72rem; font-weight: 700; letter-spacing: 0; }
