@@ -16,7 +16,7 @@ const mun = require('./municipios');
 // Sección repetible (repetible: true): lista de 1 a N bloques guardada en datos.<id de la sección> = [{ id, ...campos }].
 // Campo:
 //   tipo: 'texto' | 'celular' | 'lista' | 'area' | 'precios'
-//     'precios': lista de { producto, codigo } que se agrega fila por fila (producto libre con sugerencias de las
+//     'precios': lista de { producto, codigo, notas } que se agrega fila por fila (producto libre con sugerencias de las
 //     líneas de producto, código entre CODIGOS_PRECIO, los mismos de la ficha de obras). Empieza vacía.
 //   identidad: es el celular que identifica la hoja; se muestra fijo y no se guarda en datos (va en la columna celular)
 //   desdeChatwoot: se toma del contacto de Chatwoot y se muestra como solo lectura cuando hay contexto
@@ -148,15 +148,18 @@ function validarCampo(c, bruto, prefijo = '') {
   }
   return { valor: v };
 }
-// Filas { producto, codigo }: se ignoran las vacías; cada fila necesita ambos datos y un producto no se repite
+// Filas { producto, codigo, notas }: se ignoran las vacías; cada fila necesita producto y código (las notas son
+// opcionales) y un producto no se repite
+const MAX_NOTAS_PRECIO = 300;
 function validarPrecios(c, bruto, prefijo) {
+  const texto = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
   const filas = (Array.isArray(bruto) ? bruto : []).filter(f => f && typeof f === 'object')
-    .map(f => ({ producto: String(f.producto == null ? '' : f.producto).replace(/\s+/g, ' ').trim().slice(0, c.max || 60), codigo: String(f.codigo == null ? '' : f.codigo).trim() }))
-    .filter(f => f.producto || f.codigo);
+    .map(f => ({ producto: texto(f.producto, c.max || 60), codigo: texto(f.codigo, 10), notas: texto(f.notas, MAX_NOTAS_PRECIO) }))
+    .filter(f => f.producto || f.codigo || f.notas);
   if (c.maximo && filas.length > c.maximo) return { error: `${prefijo}se permiten máximo ${c.maximo} códigos de precio.` };
   const vistos = new Set();
   for (const f of filas) {
-    if (!f.producto) return { error: `${prefijo}escribe el tipo de producto del código ${f.codigo}.` };
+    if (!f.producto) return { error: `${prefijo}escribe el tipo de producto${f.codigo ? ' del código ' + f.codigo : ' de cada código de precio'}.` };
     if (!CODIGOS_PRECIO.includes(f.codigo)) return { error: `${prefijo}elige el código de precio de "${f.producto}".` };
     const k = f.producto.toLowerCase();
     if (vistos.has(k)) return { error: `${prefijo}el producto "${f.producto}" está repetido en los códigos de precio.` };
@@ -187,7 +190,7 @@ function validar(body, contexto = {}) {
       continue;
     }
     // Bloques repetibles: se ignoran los que llegan completamente vacíos
-    const conDato = (it, c) => (c.tipo === 'precios' ? Array.isArray(it[c.id]) && it[c.id].some(f => f && (String(f.producto || '').trim() || String(f.codigo || '').trim())) : String(it[c.id] == null ? '' : it[c.id]).trim());
+    const conDato = (it, c) => (c.tipo === 'precios' ? Array.isArray(it[c.id]) && it[c.id].some(f => f && (String(f.producto || '').trim() || String(f.codigo || '').trim() || String(f.notas || '').trim())) : String(it[c.id] == null ? '' : it[c.id]).trim());
     const items = (Array.isArray(body[s.id]) ? body[s.id] : []).filter(it => it && typeof it === 'object' && s.campos.some(c => conDato(it, c)));
     if (items.length < (s.minimo || 0)) return { error: `Agrega al menos ${s.minimo === 1 ? 'una' : s.minimo} ${s.etiquetaItem.toLowerCase()}.` };
     if (s.maximo && items.length > s.maximo) return { error: `Se permiten máximo ${s.maximo} ${s.seccion.toLowerCase()}.` };

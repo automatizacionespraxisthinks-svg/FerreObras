@@ -42,10 +42,10 @@ window.FerreHv = (function () {
 
   // Handshake con Chatwoot (solo en la página puente): pide el contexto, verifica el origen del mensaje, crea la
   // sesión de agente (POST /hv/sesion) y avisa a la vista cada vez que cambia el contacto.
-  // o = { origen, clave, contenido, alContacto({ celular, contactoId, contactoNombre, cambio }) }
+  // o = { origen, clave, contenido, alContacto({ celular, contactoId, contactoNombre, conversacionId, cambio }) }
   // Devuelve { estado, reconectar } (reconectar vuelve a crear la sesión con el último contexto recibido).
   function conectarChatwoot(o) {
-    const estado = { celular: '', contactoId: '', contactoNombre: '', agente: '', sesionLista: false, ultimoContexto: null, recibido: false };
+    const estado = { celular: '', contactoId: '', contactoNombre: '', conversacionId: '', agente: '', sesionLista: false, ultimoContexto: null, recibido: false };
     async function crearSesion(ctx) {
       const agente = ctx.currentAgent || {};
       const r = await pedir('/hv/sesion', { body: { k: o.clave, agente: { email: agente.email, name: agente.name, id: agente.id } } });
@@ -62,6 +62,7 @@ window.FerreHv = (function () {
       estado.ultimoContexto = ctx;
       estado.contactoId = contacto.id ? String(contacto.id) : '';
       estado.contactoNombre = contacto.name || '';
+      estado.conversacionId = ctx.conversation && ctx.conversation.id ? String(ctx.conversation.id) : '';
       if (!celular) {
         estado.celular = '';
         const bruto = contacto.phone_number || atributos.waha_whatsapp_jid;
@@ -73,7 +74,7 @@ window.FerreHv = (function () {
       estado.celular = celular;
       try {
         if (!estado.sesionLista) await crearSesion(ctx);
-        await o.alContacto({ celular, contactoId: estado.contactoId, contactoNombre: estado.contactoNombre, cambio });
+        await o.alContacto({ celular, contactoId: estado.contactoId, contactoNombre: estado.contactoNombre, conversacionId: estado.conversacionId, cambio });
       } catch (e) { mostrarEstado(o.contenido, `<p>${esc(e.message)}</p>`, 'error'); }
     }
     window.addEventListener('message', (ev) => {

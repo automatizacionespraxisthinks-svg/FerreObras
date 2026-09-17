@@ -10,6 +10,7 @@ const db = require('./db');
 const calc = require('./calc');
 const notify = require('./notify');
 const hv = require('./hoja_vida');
+const chatwoot = require('./chatwoot');
 
 const PRIORIDADES = [
   { id: 1, nombre: 'Alta', ayuda: 'Urgente o muy importante' },
@@ -17,12 +18,9 @@ const PRIORIDADES = [
   { id: 3, nombre: 'Baja', ayuda: 'Cuando haya tiempo' },
 ];
 const DURACION_MIN = 60; // duración del evento en el calendario cuando la tarea tiene hora
-// Color del evento en Google Calendar por prioridad (colorId de la API): 11 tomate, 5 banano, 7 pavo real.
-// Las tareas hechas se muestran "sin fondo": la API no permite atenuar un evento ni quitarle la barra a uno de todo el día,
-// pero en la vista de mes los eventos con hora se dibujan solo como punto y texto. Por eso una tarea hecha de todo el día
-// pasa a un evento a las 12 a. m. sin duración, y su punto queda en 8 (grafito).
-const COLOR_CALENDARIO = { 1: '11', 2: '5', 3: '7' };
-const COLOR_HECHA = '8';
+// Color del evento en Google Calendar: las tareas pendientes no llevan color propio (usan el del calendario) y las
+// hechas van en verde (colorId 10, albahaca).
+const COLOR_HECHA = '10';
 
 // ---------- esquema (idempotente; se ejecuta al arrancar) ----------
 async function asegurarEsquema() {
@@ -50,7 +48,9 @@ async function asegurarEsquema() {
     );
     CREATE INDEX IF NOT EXISTS agenda_tareas_celular ON agenda_tareas (celular, fecha);
     -- Tipo del evento que existe en Google Calendar (todo el día o con hora), para saber si hay que reemplazarlo
-    ALTER TABLE agenda_tareas ADD COLUMN IF NOT EXISTS calendario_todo_el_dia BOOLEAN;`);
+    ALTER TABLE agenda_tareas ADD COLUMN IF NOT EXISTS calendario_todo_el_dia BOOLEAN;
+    -- Color con el que quedó el evento en Google Calendar ('' = sin color propio; NULL = tarea anterior, con color)
+    ALTER TABLE agenda_tareas ADD COLUMN IF NOT EXISTS calendario_color TEXT;`);
   // Seguimientos automáticos por etiquetas: tabla conversation_memory del flujo "Crear Seguimiento Etiquetas" de n8n
   // (misma base). La columna linea la llena el flujo; se agrega aquí si la tabla existe y aún no la tiene.
   try {
@@ -121,9 +121,8 @@ function cargaCalendario(t, lineas) {
     responsable: t.responsable, correo_responsable: correo, fecha, hora, notas: t.notas || '', estado: t.estado, google_event_id: t.google_event_id || null,
     // Formato del título en Calendar: "#prioridad - Tarea - responsable", p. ej. "1 - Enviarle observaciones - 3535"
     titulo: `${t.estado === 'hecha' ? '✔ ' : ''}${prioridad.id} - ${t.tarea} - ${t.responsable}`, descripcion,
-    color_id: t.estado === 'hecha' ? COLOR_HECHA : (COLOR_CALENDARIO[prioridad.id] || '7'),
+    color_id: hecha ? COLOR_HECHA : '',
     ...(hora ? { todo_el_dia: false, inicio: `${fecha}T${hora}:00-05:00`, fin: masMinutos(fecha, hora, DURACION_MIN) }
-      : hecha ? { todo_el_dia: false, inicio: `${fecha}T00:00:00-05:00`, fin: `${fecha}T00:00:00-05:00` }
       : { todo_el_dia: true, inicio: fecha, fin: calc.addDays(fecha, 1) }),
   };
 }
@@ -136,13 +135,17 @@ async function sincronizar(t, evento) {
     return null;
   }
   const guardar = (r, eventId, link) => db.query(
-    `UPDATE agenda_tareas SET google_event_id = $2, google_link = $3, calendario_estado = $4, calendario_error = $5, calendario_todo_el_dia = $6 WHERE id = $1 RETURNING *`,
+    `UPDATE agenda_tareas SET google_event_id = $2, google_link = $3, calendario_estado = $4, calendario_error = $5, calendario_todo_el_dia = $6, calendario_color = $7 WHERE id = $1 RETURNING *`,
     [t.id, eventId, link, r.ok ? 'sincronizada' : (r.configurado ? 'error' : 'sin_configurar'), r.ok ? null : r.error,
-      r.ok ? carga.todo_el_dia : t.calendario_todo_el_dia]).then(x => x.rows[0]);
-  // Google no deja pasar un evento de "todo el día" a "con hora" (ni al revés) con una actualización: en ese caso
-  // se borra el evento y se crea de nuevo. Sin el tipo guardado (tareas anteriores) se asume que no cambió.
+      r.ok ? carga.todo_el_dia : t.calendario_todo_el_dia, r.ok ? carga.color_id : t.calendario_color]).then(x => x.rows[0]);
+  // Hay que borrar el evento y crearlo de nuevo cuando la actualización no basta:
+  //  - Google no deja pasar un evento de "todo el día" a "con hora" (ni al revés). Sin el tipo guardado se asume igual.
+  //  - El nodo de n8n no puede quitarle el color a un evento: si tenía color y ahora va sin color (tarea que vuelve a
+  //    pendiente, o tareas anteriores a este cambio, que se crearon con color por prioridad), se recrea.
   const tipoActual = t.calendario_todo_el_dia == null ? carga.todo_el_dia : t.calendario_todo_el_dia;
-  if (evento === 'tarea_actualizada' && t.google_event_id && tipoActual !== carga.todo_el_dia) {
+  const teniaColor = t.calendario_color == null ? true : t.calendario_color !== '';
+  const reemplazar = tipoActual !== carga.todo_el_dia || (!carga.color_id && teniaColor);
+  if (evento === 'tarea_actualizada' && t.google_event_id && reemplazar) {
     const borrado = await notify.agenda('tarea_eliminada', carga);
     if (!borrado.ok) return guardar(borrado, t.google_event_id, t.google_link);
     evento = 'tarea_creada';
@@ -293,6 +296,47 @@ router.post('/api/:celular(\\d{10})/:id(\\d+)/sincronizar', hv.authHv, hv.soloDe
 });
 router.post('/api/:celular(\\d{10})/:id(\\d+)/eliminar', hv.authHv, hv.soloDesdeLaVista, conTarea, async (req, res, next) => {
   try { await eliminar(req.tarea); res.json({ ok: true }); } catch (e) { next(e); }
+});
+
+// ---------- etiquetas de seguimiento de la conversación (Chatwoot) ----------
+// La conversación llega del contexto de Chatwoot; se comprueba que sea de este cliente antes de leerla o cambiarla.
+async function conversacionDelCliente(req, res) {
+  const id = String((req.query && req.query.conversacion) || (req.body && req.body.conversacion) || '');
+  if (!/^\d{1,10}$/.test(id)) { res.status(400).json({ error: 'Abre la agenda desde una conversación de Chatwoot para asignar seguimientos.' }); return null; }
+  const c = await chatwoot.conversacion(id);
+  const cel = hv.normalizarCelular(c.telefono) || hv.normalizarCelular(c.jid);
+  if (cel !== req.params.celular) { res.status(409).json({ error: 'La conversación abierta no corresponde a este cliente. Recarga la pestaña.' }); return null; }
+  return c;
+}
+const errorChatwoot = (res, e) => res.status(e.sinConfigurar ? 503 : 502).json({ error: e.message, sin_configurar: !!e.sinConfigurar });
+
+router.get('/api/:celular(\\d{10})/etiquetas', hv.authHv, async (req, res) => {
+  if (!chatwoot.configurado()) return res.json({ configurado: false, disponibles: [], asignadas: [] });
+  try {
+    const c = await conversacionDelCliente(req, res);
+    if (!c) return;
+    const disponibles = await chatwoot.etiquetasDisponibles(req.query.recargar === '1');
+    res.json({ configurado: true, conversacion: c.id, disponibles, asignadas: c.etiquetas.filter(l => disponibles.some(d => d.nombre === l)) });
+  } catch (e) { errorChatwoot(res, e); }
+});
+// Recibe la selección completa de seguimientos; las demás etiquetas de la conversación no se tocan
+router.post('/api/:celular(\\d{10})/etiquetas', hv.authHv, hv.soloDesdeLaVista, async (req, res) => {
+  try {
+    const pedidas = Array.isArray(req.body && req.body.etiquetas) ? [...new Set(req.body.etiquetas.map(String))] : null;
+    if (!pedidas) return res.status(400).json({ error: 'Selección no válida.' });
+    const c = await conversacionDelCliente(req, res);
+    if (!c) return;
+    const disponibles = await chatwoot.etiquetasDisponibles();
+    const nombres = new Set(disponibles.map(d => d.nombre));
+    const invalida = pedidas.find(l => !nombres.has(l));
+    if (invalida) return res.status(400).json({ error: `La etiqueta "${invalida}" no existe en Chatwoot. Recarga la pestaña.` });
+    const nuevas = [...c.etiquetas.filter(l => !nombres.has(l)), ...pedidas];
+    const antes = c.etiquetas.filter(l => nombres.has(l));
+    const quedaron = await chatwoot.fijarEtiquetas(c.id, nuevas);
+    const asignadas = quedaron.filter(l => nombres.has(l));
+    console.log(`[agenda] ${req.hv.usuario} cambió los seguimientos de la conversación ${c.id}: [${antes.join(', ')}] -> [${asignadas.join(', ')}]`);
+    res.json({ ok: true, conversacion: c.id, asignadas });
+  } catch (e) { errorChatwoot(res, e); }
 });
 
 router.use((err, req, res, next) => { // eslint-disable-line no-unused-vars

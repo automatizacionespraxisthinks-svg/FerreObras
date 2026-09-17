@@ -46,6 +46,7 @@
       <option value="">Código…</option>
       <% (locals.codigosPrecio || []).forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
     </select>
+    <input data-notas maxlength="300" placeholder="Notas" aria-label="Notas del código de precio" autocomplete="off">
     <button type="button" class="hv-precio-quitar" data-hv="quitar-precio" aria-label="Quitar este código" title="Quitar este código">×</button>
   </div>
 </template>

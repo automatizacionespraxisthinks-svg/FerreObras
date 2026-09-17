@@ -67,10 +67,10 @@
     const primero = $('input, select, textarea', nuevo);
     if (primero) primero.focus();
   }
-  // Códigos de precio de una obra: filas { producto, codigo } (se ignoran las filas vacías)
+  // Códigos de precio de una obra: filas { producto, codigo, notas } (se ignoran las filas vacías)
   const filasPrecio = (it) => Array.from(it.querySelectorAll('[data-precio]'))
-    .map(f => ({ fila: f, producto: $('[data-producto]', f).value.trim(), codigo: $('[data-codigo]', f).value }))
-    .filter(f => f.producto || f.codigo);
+    .map(f => ({ fila: f, producto: $('[data-producto]', f).value.trim(), codigo: $('[data-codigo]', f).value, notas: ($('[data-notas]', f) || { value: '' }).value.trim() }))
+    .filter(f => f.producto || f.codigo || f.notas);
   const itemVacio = (it) => Array.from(it.querySelectorAll('[data-campo]')).every(el => !String(el.value).trim()) && !filasPrecio(it).length;
   function actualizarPrecios(bloque) {
     const n = bloque.querySelectorAll('[data-precio]').length;
@@ -144,7 +144,7 @@
       body[grupo.dataset.repetible] = Array.from(grupo.querySelectorAll('[data-items] > [data-item]')).filter(it => !itemVacio(it)).map(it => {
         const item = { id: it.dataset.id || '' };
         it.querySelectorAll('[data-campo]').forEach(el => { item[el.dataset.campo] = el.value; });
-        it.querySelectorAll('[data-precios]').forEach(bloque => { item[bloque.dataset.precios] = filasPrecio(bloque).map(f => ({ producto: f.producto, codigo: f.codigo })); });
+        it.querySelectorAll('[data-precios]').forEach(bloque => { item[bloque.dataset.precios] = filasPrecio(bloque).map(f => ({ producto: f.producto, codigo: f.codigo, notas: f.notas })); });
         return item;
       });
     }

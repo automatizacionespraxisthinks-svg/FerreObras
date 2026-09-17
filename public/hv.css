@@ -106,6 +106,37 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
   .ag-form-acciones .btn { flex: 1; justify-content: center; }
 }
 
+/* seguimientos automáticos: selector múltiple de etiquetas de Chatwoot */
+.ag-etq { margin-top: .6rem; padding: .55rem .75rem .6rem; border: 1px solid var(--borde); border-left: 4px solid #7B1FA2; border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
+.ag-etq .ag-form-cab { margin-bottom: .35rem; }
+.ag-etq-estado { white-space: normal; text-align: right; }
+.ag-etq-estado.error { color: var(--rojo); }
+.ag-etq-aviso { margin: 0; font-size: .82rem; color: var(--tinta-suave); }
+.ag-etq-aviso.error { color: var(--rojo); }
+.ag-etq-aviso code { font-size: .78rem; }
+.ag-multi { position: relative; }
+.ag-multi-campo { display: flex; align-items: center; gap: .4rem; min-height: 38px; padding: .2rem .25rem .2rem .45rem; border: 1.5px solid var(--borde-2); border-radius: var(--radio-chico); background: #fff; cursor: pointer; }
+.ag-multi.abierto .ag-multi-campo, .ag-multi-campo:hover { border-color: var(--azul); }
+.ag-multi.abierto .ag-multi-campo { box-shadow: 0 0 0 3px rgba(9, 47, 119, .12); }
+.ag-multi-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
+.ag-multi-vacio { font-size: .82rem; color: var(--tinta-suave); padding: .2rem 0; }
+.ag-etq-chip { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; padding: .12rem .15rem .12rem .5rem; border-radius: 999px; background: #F3E8F7; color: #4A148C; font-size: .8rem; font-weight: 600; cursor: default; }
+.ag-etq-chip button { width: 22px; height: 22px; border: none; border-radius: 50%; background: transparent; color: #6A1B9A; font-size: 1rem; line-height: 1; padding: 0; }
+.ag-etq-chip button:hover { background: #E1BEE7; color: var(--rojo); }
+.ag-etq-punto { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--c, #7B1FA2); box-shadow: 0 0 0 1.5px #fff; }
+.ag-multi-toggle { flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: var(--radio-chico); background: transparent; color: var(--azul); padding: 0; transition: transform .15s; }
+.ag-multi-toggle:hover { background: var(--azul-claro); }
+.ag-multi.abierto .ag-multi-toggle svg { transform: rotate(180deg); }
+.ag-multi-lista { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 15; max-height: 260px; overflow: auto; padding: .25rem; border: 1px solid var(--borde); border-radius: var(--radio); background: #fff; box-shadow: var(--sombra-2); }
+.ag-multi-op { display: flex; align-items: flex-start; gap: .5rem; margin: 0; padding: .4rem .5rem; border-radius: var(--radio-chico); font-size: .84rem; color: var(--tinta); cursor: pointer; }
+.ag-multi-op:hover, .ag-multi-op:focus-within { background: var(--fondo); }
+.ag-multi-op.marcada { background: #F8F1FB; }
+.ag-multi-op input { flex: none; width: 16px; height: 16px; min-height: 0; margin: .15rem 0 0; accent-color: #7B1FA2; }
+.ag-multi-op .ag-etq-punto { margin-top: .35rem; }
+.ag-multi-texto { min-width: 0; display: flex; flex-direction: column; }
+.ag-multi-texto b { font-weight: 600; overflow-wrap: anywhere; }
+.ag-multi-texto small { font-size: .74rem; color: var(--tinta-suave); }
+
 /* división entre el formulario y los eventos */
 .ag-division { display: flex; align-items: center; gap: .6rem; margin: .9rem 0 .6rem; padding-top: .6rem; border-top: 3px solid var(--amarillo); }
 .ag-division::after { content: ""; flex: 1; height: 1px; background: var(--borde-2); }
@@ -177,7 +208,16 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .hv-precios-lista { display: flex; flex-direction: column; gap: .35rem; }
 .hv-precios-lista:empty { display: none; }
 .hv-precios .hv-vacio { margin: 0 0 .4rem; }
-.hv-precio { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem 34px; gap: .4rem; align-items: center; }
+/* producto - código - notas - quitar */
+.hv-precio { display: grid; grid-template-columns: minmax(0, 1fr) 6.8rem minmax(0, 1.25fr) 34px; grid-template-areas: "producto codigo notas quitar"; gap: .4rem; align-items: center; }
+.hv-precio [data-producto] { grid-area: producto; }
+.hv-precio [data-codigo] { grid-area: codigo; }
+.hv-precio [data-notas] { grid-area: notas; }
+.hv-precio .hv-precio-quitar { grid-area: quitar; }
+.hv-precios-lista .hv-precio + .hv-precio { padding-top: .35rem; border-top: 1px dashed var(--borde); }
+@media (max-width: 520px) {
+  .hv-precio { grid-template-columns: minmax(0, 1fr) 6.2rem 34px; grid-template-areas: "producto codigo quitar" "notas notas notas"; }
+}
 .hv-precio input, .hv-precio select { width: 100%; min-height: 38px; margin: 0; padding: .4rem .55rem; border: 1.5px solid var(--borde-2); border-radius: var(--radio-chico); background: #fff; font-weight: 400; color: var(--tinta); }
 .hv-precio select { appearance: none; -webkit-appearance: none; padding-right: 1.8rem; font-weight: 700; color: var(--azul); background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23243672' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right .5rem center; }
 .hv-precio input:focus, .hv-precio select:focus { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(9, 47, 119, .12); outline: none; }
@@ -187,3 +227,6 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 .hv-codigos { display: flex; flex-wrap: wrap; gap: .35rem; white-space: normal !important; }
 .hv-codigo { display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .25rem .15rem .6rem; border-radius: 999px; background: var(--azul-claro); color: var(--azul); font-size: .82rem; }
 .hv-codigo b { padding: .05rem .45rem; border-radius: 999px; background: var(--azul); color: var(--amarillo); font-weight: 800; font-size: .75rem; }
+.hv-codigo { max-width: 100%; flex-wrap: wrap; }
+.hv-codigo-nota { padding-right: .45rem; color: var(--tinta-2); font-size: .76rem; font-weight: 400; overflow-wrap: anywhere; }
+.hv-codigo-nota::before { content: "· "; }
