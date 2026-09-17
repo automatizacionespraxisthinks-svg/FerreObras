@@ -133,8 +133,8 @@
     const cab = $('#ag-pendientes', contenido);
     if (cab) cab.textContent = `${pendientes.length} pendiente${pendientes.length === 1 ? '' : 's'}`;
     cont.innerHTML = `
-        <div class="ag-division" role="separator" aria-label="Eventos de este cliente">
-          <span class="ag-division-texto">Eventos de este cliente</span>
+        <div class="ag-division" role="separator" aria-label="Tareas de este cliente">
+          <span class="ag-division-texto">Tareas de este cliente</span>
           <span class="hv-conteo">${d.tareas.length + d.avisos.length + d.seguimientos.length}</span>
         </div>
 
