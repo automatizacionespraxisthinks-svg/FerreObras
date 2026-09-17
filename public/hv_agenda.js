@@ -78,6 +78,8 @@
           </div>
         </header>
 
+        <section class="ag-etq" id="ag-etq" aria-label="Seguimientos automáticos por etiquetas"></section>
+
         <form class="ag-form ${t ? 'editando' : ''}" id="ag-form" novalidate>
           <div class="ag-form-cab">
             <h2 class="ag-form-titulo">${t ? 'Editar tarea' : 'Nueva tarea'}</h2>
@@ -115,8 +117,6 @@
           </div>
           <p class="error" role="alert" hidden></p>
         </form>
-
-        <section class="ag-etq" id="ag-etq" aria-label="Seguimientos automáticos por etiquetas"></section>
 
         <div id="ag-eventos"></div>
       </div>`;

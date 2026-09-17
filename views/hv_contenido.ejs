@@ -26,7 +26,7 @@
         <div class="hv-precio" data-precio>
           <input data-producto list="hv-productos" maxlength="<%= c.max || 60 %>" placeholder="Tipo de producto" aria-label="Tipo de producto" autocomplete="off" value="<%= f.producto %>">
           <select data-codigo aria-label="Código de precio">
-            <option value="">Código…</option>
+            <option value="">Sin código</option>
             <% (locals.codigosPrecio || []).forEach(cod => { %><option value="<%= cod %>" <%= f.codigo === cod ? 'selected' : '' %>><%= cod %></option><% }) %>
           </select>
           <input data-notas maxlength="300" placeholder="Notas" aria-label="Notas del código de precio" autocomplete="off" value="<%= f.notas || '' %>">
@@ -104,7 +104,7 @@
             <dl class="hv-datos">
               <% s.campos.forEach(c => { if (!it[c.id] || (Array.isArray(it[c.id]) && !it[c.id].length)) return;
                    if (c.tipo === 'precios') { %>
-                <div class="hv-dato largo"><dt><%= c.etiqueta %></dt><dd class="hv-codigos"><% it[c.id].forEach(f => { %><span class="hv-codigo"><%= f.producto %> <b><%= f.codigo %></b><% if (f.notas) { %><span class="hv-codigo-nota"><%= f.notas %></span><% } %></span><% }) %></dd></div>
+                <div class="hv-dato largo"><dt><%= c.etiqueta %></dt><dd class="hv-codigos"><% it[c.id].forEach(f => { %><span class="hv-codigo"><%= f.producto %><% if (f.codigo) { %> <b><%= f.codigo %></b><% } %><% if (f.notas) { %><span class="hv-codigo-nota"><%= f.notas %></span><% } %></span><% }) %></dd></div>
               <%   return; } %>
                 <div class="hv-dato <%= c.tipo === 'area' ? 'largo' : '' %>"><dt><%= c.etiqueta %></dt><dd><% if (c.tipo === 'celular') { %><a href="tel:+57<%= it[c.id] %>"><%= fmtCel(it[c.id]) %></a><% } else { %><%= it[c.id] %><% } %></dd></div>
               <% }) %>

@@ -18,8 +18,12 @@ const PRIORIDADES = [
   { id: 3, nombre: 'Baja', ayuda: 'Cuando haya tiempo' },
 ];
 const DURACION_MIN = 60; // duración del evento en el calendario cuando la tarea tiene hora
-// Color del evento en Google Calendar: las tareas pendientes no llevan color propio (usan el del calendario) y las
-// hechas van en verde (colorId 10, albahaca).
+// Color y forma del evento en Google Calendar. Google no tiene color transparente: un evento sin color toma el del
+// calendario y los de todo el día siempre se dibujan como barra con fondo. Los eventos con hora, en cambio, se ven solo
+// como punto y texto (sin fondo). Por eso:
+//  - pendiente sin hora -> evento a las 12 a. m. sin duración, sin color propio (se ve sin fondo)
+//  - pendiente con hora -> evento con hora, sin color propio (sin fondo)
+//  - hecha -> verde (colorId 10, albahaca); si no tiene hora, barra de todo el día
 const COLOR_HECHA = '10';
 
 // ---------- esquema (idempotente; se ejecuta al arrancar) ----------
@@ -123,7 +127,8 @@ function cargaCalendario(t, lineas) {
     titulo: `${t.estado === 'hecha' ? '✔ ' : ''}${prioridad.id} - ${t.tarea} - ${t.responsable}`, descripcion,
     color_id: hecha ? COLOR_HECHA : '',
     ...(hora ? { todo_el_dia: false, inicio: `${fecha}T${hora}:00-05:00`, fin: masMinutos(fecha, hora, DURACION_MIN) }
-      : { todo_el_dia: true, inicio: fecha, fin: calc.addDays(fecha, 1) }),
+      : hecha ? { todo_el_dia: true, inicio: fecha, fin: calc.addDays(fecha, 1) }
+      : { todo_el_dia: false, inicio: `${fecha}T00:00:00-05:00`, fin: `${fecha}T00:00:00-05:00` }),
   };
 }
 // Envía la tarea a n8n y guarda el resultado en la fila (id del evento, enlace y estado de sincronización)

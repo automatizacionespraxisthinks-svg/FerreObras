@@ -107,7 +107,7 @@ body.hv { display: block; min-height: 0; color: var(--tinta); }
 }
 
 /* seguimientos automáticos: selector múltiple de etiquetas de Chatwoot */
-.ag-etq { margin-top: .6rem; padding: .55rem .75rem .6rem; border: 1px solid var(--borde); border-left: 4px solid #7B1FA2; border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
+.ag-etq { margin-bottom: .6rem; padding: .55rem .75rem .6rem; border: 1px solid var(--borde); border-left: 4px solid #7B1FA2; border-radius: var(--radio); background: #fff; box-shadow: var(--sombra); }
 .ag-etq .ag-form-cab { margin-bottom: .35rem; }
 .ag-etq-estado { white-space: normal; text-align: right; }
 .ag-etq-estado.error { color: var(--rojo); }

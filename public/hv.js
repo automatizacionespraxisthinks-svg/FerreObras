@@ -129,12 +129,12 @@
       error.textContent = 'Completa los campos marcados con *.'; error.hidden = false; faltante.focus();
       return;
     }
-    // Cada código de precio necesita tipo de producto y código
+    // Cada código de precio necesita el tipo de producto (el código y las notas son opcionales)
     for (const it of form.querySelectorAll('[data-item]')) {
-      const incompleta = filasPrecio(it).find(f => !f.producto || !f.codigo);
+      const incompleta = filasPrecio(it).find(f => !f.producto);
       if (incompleta) {
-        error.textContent = incompleta.producto ? `Elige el código de precio de "${incompleta.producto}".` : 'Escribe el tipo de producto de cada código de precio.';
-        error.hidden = false; $(incompleta.producto ? '[data-codigo]' : '[data-producto]', incompleta.fila).focus();
+        error.textContent = 'Escribe el tipo de producto de cada código de precio.';
+        error.hidden = false; $('[data-producto]', incompleta.fila).focus();
         return;
       }
     }

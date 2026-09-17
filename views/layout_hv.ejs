@@ -43,7 +43,7 @@
   <div class="hv-precio" data-precio>
     <input data-producto list="hv-productos" maxlength="60" placeholder="Tipo de producto" aria-label="Tipo de producto" autocomplete="off">
     <select data-codigo aria-label="Código de precio">
-      <option value="">Código…</option>
+      <option value="">Sin código</option>
       <% (locals.codigosPrecio || []).forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
     </select>
     <input data-notas maxlength="300" placeholder="Notas" aria-label="Notas del código de precio" autocomplete="off">

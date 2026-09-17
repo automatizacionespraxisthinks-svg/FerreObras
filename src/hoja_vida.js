@@ -148,7 +148,7 @@ function validarCampo(c, bruto, prefijo = '') {
   }
   return { valor: v };
 }
-// Filas { producto, codigo, notas }: se ignoran las vacías; cada fila necesita producto y código (las notas son
+// Filas { producto, codigo, notas }: se ignoran las vacías; cada fila necesita el producto (código y notas son
 // opcionales) y un producto no se repite
 const MAX_NOTAS_PRECIO = 300;
 function validarPrecios(c, bruto, prefijo) {
@@ -160,7 +160,7 @@ function validarPrecios(c, bruto, prefijo) {
   const vistos = new Set();
   for (const f of filas) {
     if (!f.producto) return { error: `${prefijo}escribe el tipo de producto${f.codigo ? ' del código ' + f.codigo : ' de cada código de precio'}.` };
-    if (!CODIGOS_PRECIO.includes(f.codigo)) return { error: `${prefijo}elige el código de precio de "${f.producto}".` };
+    if (f.codigo && !CODIGOS_PRECIO.includes(f.codigo)) return { error: `${prefijo}el código de precio de "${f.producto}" no es válido.` };
     const k = f.producto.toLowerCase();
     if (vistos.has(k)) return { error: `${prefijo}el producto "${f.producto}" está repetido en los códigos de precio.` };
     vistos.add(k);
